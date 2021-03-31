@@ -17,10 +17,10 @@ def connect_mqtt(config):
     with open(CERT_PATH, "r") as f:
         cert = f.read()
 
-    config['server'] = local_config.ENDPOINT
+    config['server'] = local_config.IOT_ENDPOINT
     config['ssl'] = True
     config['ssl_params'] = {"key": key, "cert": cert, "server_side": False}
-    config['client_id'] = local_config.CLIENT_ID
+    config['client_id'] = local_config.IOT_CLIENT_ID
     config['ssid'] = local_config.WIFI_SSID
     config['wifi_pw'] = local_config.WIFI_PASSWORD
 

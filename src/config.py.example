@@ -1,6 +1,12 @@
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
-ENDPOINT = "<PREFIX>-ats.iot.eu-west-1.amazonaws.com"
-CLIENT_ID = ""
-IOT_TEMPERATURE_THING_NAME = "inkbird-4xs"
-IOT_TEMPERATURE_THING_SHADOW_NAME = "temperature"
+
+IOT_ENDPOINT = "<ENDPOINT>-ats.iot.eu-west-1.amazonaws.com"
+IOT_CLIENT_ID = ""
+IOT_TEMPERATURE_THING_NAME = ""
+IOT_TEMPERATURE_THING_SHADOW_NAME ="temperature"
+IOT_DEVICE_THING_NAME = ""
+IOT_DEVICE_THING_SHADOW_NAME = "setpoint"
+
+FAN_PIN = 12
+SERVO_PIN = 10
