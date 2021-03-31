@@ -8,13 +8,19 @@ FAN_PWM = PWM(FAN_PIN)
 
 FAN_PWM.freq(FREQUENCY)
 
-# Duty set as a percentage
-def set_fan_duty(duty):
-    percent = int(duty / 100 * 1023)
-    FAN_PWM.duty(percent)
+# Sets the initial duty
+_duty = 100
 
+# Duty set as a percentage (0-100)
+def set_duty(d):
+    percent = int(d / 100 * 1023)
+    FAN_PWM.duty(percent)
+    _duty = percent
+
+def duty():
+    return _duty
 
 def deint():
     FAN_PWM.deinit()
 
-set_fan_duty(100)
+set_duty(_duty)

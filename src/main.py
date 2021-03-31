@@ -1,18 +1,18 @@
 import re
 import ujson
 import uasyncio as asyncio
-from lib.mqtt_as.config import config
-import config as local_config
+from lib.mqtt_as import config as mqttconfig
+import config
 from mqtt import connect_mqtt
-from fan import set_fan_duty
-from iot import has_property_changed
+import fan
+import iot
 
 IOT_TEMPERATURE_SHADOW = "$aws/things/{}/shadow/name/{}".format(
-    local_config.IOT_TEMPERATURE_THING_NAME,
-    local_config.IOT_TEMPERATURE_THING_SHADOW_NAME,
+    config.IOT_TEMPERATURE_THING_NAME,
+    config.IOT_TEMPERATURE_THING_SHADOW_NAME,
 )
 IOT_DEVICE_SHADOW = "$aws/things/{}/shadow/name/{}".format(
-    local_config.IOT_DEVICE_THING_NAME, local_config.IOT_DEVICE_THING_SHADOW_NAME
+    config.IOT_DEVICE_THING_NAME, config.IOT_DEVICE_THING_SHADOW_NAME
 )
 LATEST_SHADOW_REGEX = re.compile(
     r"^\$aws\/things\/(.+)\/shadow\/name\/(.+)\/get\/accepted$"
@@ -45,16 +45,17 @@ async def callback_connection(c):
     await c.subscribe("{}".format(IOT_DEVICE_SHADOW + "/update/accepted"))
 
 
-def process_temperature(msg):
+def process_temperature_message(msg):
     print(msg)
 
-def process_device(msg):
-    if has_property_changed(msg, "fanSpeed") is False:
+
+def process_device_message(msg):
+    if iot.has_property_changed(msg, "fanSpeed") is False and iot.is_in_sync(msg, 'fanSpeed', fan.duty()) is True:
         return
 
     speed = msg["state"]["desired"]["fanSpeed"]
     print("Updating fan speed to:", speed)
-    set_fan_duty(speed)
+    fan.set_duty(speed)
 
     state = {"state": {"reported": {"fanSpeed": speed}}}
     print("Publishing fan speed update")
@@ -82,15 +83,15 @@ def callback_message_received(topic, msg, retained):
         print(e)
     else:
         if (
-            thing == local_config.IOT_TEMPERATURE_THING_NAME
-        ) and shadow == local_config.IOT_TEMPERATURE_THING_SHADOW_NAME:
+            thing == config.IOT_TEMPERATURE_THING_NAME
+        ) and shadow == config.IOT_TEMPERATURE_THING_SHADOW_NAME:
             print("Processing temperature message")
-            process_temperature(obj)
+            process_temperature_message(obj)
         if (
-            thing == local_config.IOT_DEVICE_THING_NAME
-        ) and shadow == local_config.IOT_DEVICE_THING_SHADOW_NAME:
+            thing == config.IOT_DEVICE_THING_NAME
+        ) and shadow == config.IOT_DEVICE_THING_SHADOW_NAME:
             print("Processing device message")
-            process_device(obj)
+            process_device_message(obj)
 
 
 async def run():
@@ -101,10 +102,10 @@ async def run():
 
 def main():
     global client
-    config["subs_cb"] = callback_message_received
-    config["connect_coro"] = callback_connection
+    mqttconfig["subs_cb"] = callback_message_received
+    mqttconfig["connect_coro"] = callback_connection
 
-    client = connect_mqtt(config)
+    client = connect_mqtt(mqttconfig)
 
     try:
         asyncio.run(run())

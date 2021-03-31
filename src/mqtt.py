@@ -1,13 +1,13 @@
+import config
+from lib.mqtt_as import MQTTClient
 
 CACERT_PATH = "certs/aws-root-ca.pem"
 KEY_PATH = "certs/private.pem.key"
 CERT_PATH = "certs/certificate.pem.crt"
-import config as local_config
-from lib.mqtt_as.mqtt_as import MQTTClient
 
 DEBUG = True
 
-def connect_mqtt(config):
+def connect_mqtt(mqttConfig):
     with open(KEY_PATH, "r") as f:
         key = f.read()
 
@@ -17,12 +17,12 @@ def connect_mqtt(config):
     with open(CERT_PATH, "r") as f:
         cert = f.read()
 
-    config['server'] = local_config.IOT_ENDPOINT
-    config['ssl'] = True
-    config['ssl_params'] = {"key": key, "cert": cert, "server_side": False}
-    config['client_id'] = local_config.IOT_CLIENT_ID
-    config['ssid'] = local_config.WIFI_SSID
-    config['wifi_pw'] = local_config.WIFI_PASSWORD
+    mqttConfig['server'] = config.IOT_ENDPOINT
+    mqttConfig['ssl'] = True
+    mqttConfig['ssl_params'] = {"key": key, "cert": cert, "server_side": False}
+    mqttConfig['client_id'] = config.IOT_CLIENT_ID
+    mqttConfig['ssid'] = config.WIFI_SSID
+    mqttConfig['wifi_pw'] = config.WIFI_PASSWORD
 
     MQTTClient.DEBUG = DEBUG
-    return MQTTClient(config)
+    return MQTTClient(mqttConfig)

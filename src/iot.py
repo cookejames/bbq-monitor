@@ -13,3 +13,13 @@ def has_property_changed(msg, prop):
         return False
 
     return True
+
+
+def is_in_sync(msg, prop, expected):
+    if (
+        "reported" not in msg["state"].keys()
+        or prop not in msg["state"]["reported"].keys()
+        or msg["state"]["reported"][prop] != expected
+    ):
+        return False
+    return True
