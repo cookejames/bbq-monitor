@@ -1,6 +1,13 @@
 # boot.py - - runs on boot-up
-import config
 import network
+import upip
+import config
+
+DEPENDENCIES = ['asyncio']
+
+def install_packages():
+    print('Installing dependencies:', DEPENDENCIES)
+    upip.install(DEPENDENCIES)
 
 def do_connect():
     sta_if = network.WLAN(network.STA_IF)
@@ -11,5 +18,6 @@ def do_connect():
         while not sta_if.isconnected():
             pass
     print('network config:', sta_if.ifconfig())
+    # install_packages()
 
 do_connect()

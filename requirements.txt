@@ -1,1 +1,2 @@
-micropython-umqtt-simple
+asyncio
+micropython-mqtt

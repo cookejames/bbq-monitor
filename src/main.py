@@ -1,54 +1,54 @@
-
+import uasyncio as asyncio
 import re
-from time import sleep
-import config
-import mqtt
+from lib.mqtt_as.config import config
+import config as local_config
+from mqtt import connect_mqtt
 
 IOT_TEMPERATURE_SHADOW = "$aws/things/{}/shadow/name/{}".format(
-    config.IOT_TEMPERATURE_THING_NAME, config.IOT_TEMPERATURE_THING_SHADOW_NAME)
+    local_config.IOT_TEMPERATURE_THING_NAME, local_config.IOT_TEMPERATURE_THING_SHADOW_NAME)
 LATEST_SHADOW_REGEX = re.compile(r"^\$aws\/things\/(.+)\/shadow\/name\/(.+)\/get\/accepted$")
 TEMPERATURE_UPDATE_REGEX = re.compile(r"^\$aws\/things\/(.+)\/shadow\/name\/(.+)\/update\/accepted$")
 
-client = None
+async def callback_connection(client):
+    print('Connection callback')
 
-def sub_cb(topic, msg):
+    print('Subscribing to current shadow')
+    topic = IOT_TEMPERATURE_SHADOW + "/get/accepted"
+    await client.subscribe("{}".format(topic))
+
+    print('Requesting current shadow')
+    await client.publish(IOT_TEMPERATURE_SHADOW + "/get", "")
+
+    print('Subscribing to temperature updates')
+    topic = IOT_TEMPERATURE_SHADOW + "/update/accepted"
+    await client.subscribe("{}".format(topic))
+
+def callback_message_received(topic, msg, retained):
     topic = topic.decode('utf-8')
     msg = msg.decode('utf-8')
+
     if LATEST_SHADOW_REGEX.match(topic):
-        print("Fetched the latest thing shadow")
+        print("Received the latest thing shadow")
     if TEMPERATURE_UPDATE_REGEX.match(topic):
-        print("Fetched the latest sensor reading")
+        print("Received the latest sensor reading")
     print(msg)
 
-
-def initialise_mqtt():
-    global client
-    client = mqtt.connect_mqtt(config.ENDPOINT, config.CLIENT_ID)
-    client.set_callback(sub_cb)
-
-    # Get the latest shadow
-    topic = IOT_TEMPERATURE_SHADOW + "/get/accepted"
-    client.subscribe(b"{}".format(topic))
-    client.publish(IOT_TEMPERATURE_SHADOW + "/get", b"")
-
-    # Subscribe to updates
-    topic = IOT_TEMPERATURE_SHADOW + "/update/accepted"
-    client.subscribe(b"{}".format(topic))
-
+async def run(client):
+    await client.connect()
+    while True:
+        await asyncio.sleep(5)
 
 def main():
-    global client
-    initialise_mqtt()
+    config['subs_cb'] = callback_message_received
+    config['connect_coro'] = callback_connection
 
-    while True:
-        # Non-blocking wait for message
-        client.check_msg()
-        # Then need to sleep to avoid 100% CPU usage (in a real
-        # app other useful actions would be performed instead)
-        sleep(1)
+    client = connect_mqtt(config)
 
-    client.disconnect()
-
+    try:
+        asyncio.run(run(client))
+    finally:
+        print('Closing...')
+        client.close()  # Prevent LmacRxBlk:1 errors
 
 if __name__ == "__main__":
     main()
