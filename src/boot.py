@@ -4,6 +4,7 @@ import upip
 import config
 
 DEPENDENCIES = ['asyncio']
+INSTALL_PACKAGES = False
 
 def install_packages():
     print('Installing dependencies:', DEPENDENCIES)
@@ -18,6 +19,8 @@ def do_connect():
         while not sta_if.isconnected():
             pass
     print('network config:', sta_if.ifconfig())
-    # install_packages()
+
+    if INSTALL_PACKAGES: 
+        install_packages()
 
 do_connect()

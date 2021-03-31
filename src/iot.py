@@ -9,7 +9,7 @@ def has_property_changed(msg, prop):
         prop in msg["state"]["reported"].keys()
         and msg["state"]["desired"][prop] == msg["state"]["reported"][prop]
     ):
-        print("{} does not require an update".format(prop))
+        # print("{} does not require an update".format(prop))
         return False
 
     return True

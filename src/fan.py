@@ -1,26 +1,23 @@
 from machine import Pin, PWM
 import config
 
-FREQUENCY = 25000
 
-FAN_PIN = Pin(config.FAN_PIN)
-FAN_PWM = PWM(FAN_PIN)
+class Fan:
+    def __init__(self, duty=100, pin=config.FAN_PIN, frequency=25000):
+        self.frequency = frequency
+        self.pin = Pin(pin)
+        self.pwm = PWM(self.pin)
+        self.pwm.freq(self.frequency)
+        self.set_duty(duty)
 
-FAN_PWM.freq(FREQUENCY)
+    def set_duty(self, duty):
+        if isinstance(duty, int) is False:
+            raise Exception('duty must be an integer, received', duty)
+        self._duty = duty
+        self.pwm.duty(int(duty / 100 * 1023))
 
-# Sets the initial duty
-_duty = 100
+    def duty(self):
+        return self._duty
 
-# Duty set as a percentage (0-100)
-def set_duty(d):
-    percent = int(d / 100 * 1023)
-    FAN_PWM.duty(percent)
-    _duty = percent
-
-def duty():
-    return _duty
-
-def deint():
-    FAN_PWM.deinit()
-
-set_duty(_duty)
+    def stop(self):
+        self.pwm.deinit()
