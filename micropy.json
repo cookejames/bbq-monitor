@@ -1,0 +1,16 @@
+{
+    "name": "micropythontest",
+    "stubs": {
+        "esp32-micropython-1.12.0": "1.3.2"
+    },
+    "dev-packages": {
+        "micropy-cli": "*"
+    },
+    "packages": {
+        "micropython-umqtt-simple": "*"
+    },
+    "config": {
+        "vscode": true,
+        "pylint": true
+    }
+}
