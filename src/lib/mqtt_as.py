@@ -136,7 +136,7 @@ class MQTT_base:
         self.last_rx = ticks_ms()  # Time of last communication from broker
         self.lock = asyncio.Lock()
 
-    def _set_last_will(self, topic, msg, retain=False, qos=0):
+    def _set_last_will(self, topic, msg, retain=False, qos=1):
         qos_check(qos)
         if not topic:
             raise ValueError('Empty topic.')

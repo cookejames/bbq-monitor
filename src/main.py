@@ -1,7 +1,7 @@
 import re
 import ujson
 import uasyncio as asyncio
-from lib.mqtt_as import config as mqttconfig
+from lib.mqtt_as import config as mqttConfig
 import config
 from mqtt import connect_mqtt
 from fan import Fan
@@ -9,13 +9,8 @@ from temperature import Temperature
 from servo import Servo
 import iot
 
-IOT_TEMPERATURE_SHADOW = "$aws/things/{}/shadow/name/{}".format(
-    config.IOT_TEMPERATURE_THING_NAME,
-    config.IOT_TEMPERATURE_THING_SHADOW_NAME,
-)
-IOT_DEVICE_SHADOW = "$aws/things/{}/shadow/name/{}".format(
-    config.IOT_DEVICE_THING_NAME, config.IOT_DEVICE_THING_SHADOW_NAME
-)
+IOT_SHADOW = "$aws/things/{}/shadow/name/{}"
+
 LATEST_SHADOW_REGEX = re.compile(
     r"^\$aws\/things\/(.+)\/shadow\/name\/(.+)\/get\/accepted$"
 )
@@ -29,25 +24,58 @@ temperature = None
 servo = None
 
 
-async def publish(topic, message):
+async def update_shadow(thing, shadow, message, method="/update"):
+    topic = IOT_SHADOW.format(thing, shadow) + method
     await client.publish(topic, message)
     print("Published update", topic, message)
 
 
 async def callback_connection(c):
     print("Connection callback")
+    state = {"state": {"reported": {"connection": "Connected"}}}
+    await update_shadow(config.IOT_DEVICE_THING_NAME, "connection", ujson.dumps(state))
 
     print("Subscribing to current shadows")
-    await c.subscribe("{}".format(IOT_TEMPERATURE_SHADOW + "/get/accepted"))
-    await c.subscribe("{}".format(IOT_DEVICE_SHADOW + "/get/accepted"))
+    await c.subscribe(
+        IOT_SHADOW.format(
+            config.IOT_TEMPERATURE_THING_NAME, config.IOT_TEMPERATURE_THING_SHADOW_NAME
+        )
+        + "/get/accepted"
+    )
+    await c.subscribe(
+        IOT_SHADOW.format(
+            config.IOT_DEVICE_THING_NAME, config.IOT_DEVICE_THING_SHADOW_NAME
+        )
+        + "/get/accepted"
+    )
 
     print("Requesting current shadows")
-    await c.publish(IOT_DEVICE_SHADOW + "/get", "")
-    await c.publish(IOT_TEMPERATURE_SHADOW + "/get", "")
+    await update_shadow(
+        config.IOT_TEMPERATURE_THING_NAME,
+        config.IOT_TEMPERATURE_THING_SHADOW_NAME,
+        "",
+        method="/get",
+    )
+    await update_shadow(
+        config.IOT_DEVICE_THING_NAME,
+        config.IOT_DEVICE_THING_SHADOW_NAME,
+        "",
+        method="/get",
+    )
 
     print("Subscribing to temperature updates")
-    await c.subscribe("{}".format(IOT_TEMPERATURE_SHADOW + "/update/accepted"))
-    await c.subscribe("{}".format(IOT_DEVICE_SHADOW + "/update/accepted"))
+    await c.subscribe(
+        IOT_SHADOW.format(
+            config.IOT_TEMPERATURE_THING_NAME, config.IOT_TEMPERATURE_THING_SHADOW_NAME
+        )
+        + "/update/accepted"
+    )
+    await c.subscribe(
+        IOT_SHADOW.format(
+            config.IOT_DEVICE_THING_NAME, config.IOT_DEVICE_THING_SHADOW_NAME
+        )
+        + "/update/accepted"
+    )
 
 
 def process_temperature_message(msg):
@@ -85,39 +113,46 @@ def process_device_message(msg):
     state_changed = False
     state = {"state": {"reported": {}}}
 
-    #TODO remove manual control
     if (
         iot.has_property_changed(msg, "fanSpeed") is True
         or iot.is_in_sync(msg, "fanSpeed", fan.duty()) is False
     ):
-        speed = msg["state"]["desired"]["fanSpeed"]
-        print("Updating fan speed to:", speed)
-        fan.set_duty(speed)
+        if "fanSpeed" in msg["state"]["desired"].keys():
+            speed = msg["state"]["desired"]["fanSpeed"]
+            print("Updating fan speed to:", speed)
+            fan.set_duty(speed)
 
-        state["state"]["reported"]["fanSpeed"] = speed
+        state["state"]["reported"]["fanSpeed"] = fan.duty()
         state_changed = True
-    #Manual control ends here
 
     if (
         iot.has_property_changed(msg, "sensor") is True
         or iot.is_in_sync(msg, "sensor", temperature.measuring_sensor) is False
     ):
-        temperature.measuring_sensor = msg["state"]["desired"]["sensor"]
-        print("Changing measuring sensor to:", temperature.measuring_sensor)
+        if "sensor" in msg["state"]["desired"].keys():
+            temperature.measuring_sensor = msg["state"]["desired"]["sensor"]
+            print("Changing measuring sensor to:", temperature.measuring_sensor)
         state["state"]["reported"]["sensor"] = temperature.measuring_sensor
         state_changed = True
 
     if (
-        iot.has_property_changed(msg, "temperature") is True
-        or iot.is_in_sync(msg, "temperature", temperature.setpoint) is False
+        iot.has_property_changed(msg, "value") is True
+        or iot.is_in_sync(msg, "value", temperature.setpoint) is False
     ):
-        temperature.setpoint = msg["state"]["desired"]["temperature"]
-        print("Changing setpoint to:", temperature.setpoint)
-        state["state"]["reported"]["temperature"] = temperature.setpoint
+        if "value" in msg["state"]["desired"].keys():
+            temperature.setpoint = msg["state"]["desired"]["value"]
+            print("Changing setpoint to:", temperature.setpoint)
+        state["state"]["reported"]["value"] = temperature.setpoint
         state_changed = True
 
     if state_changed:
-        asyncio.create_task(publish(IOT_DEVICE_SHADOW + "/update", ujson.dumps(state)))
+        asyncio.create_task(
+            update_shadow(
+                config.IOT_DEVICE_THING_NAME,
+                config.IOT_DEVICE_THING_SHADOW_NAME,
+                ujson.dumps(state),
+            )
+        )
 
 
 def callback_message_received(topic, msg, retained):
@@ -161,10 +196,14 @@ async def run():
 
 def main():
     global client, fan, temperature, servo
-    mqttconfig["subs_cb"] = callback_message_received
-    mqttconfig["connect_coro"] = callback_connection
+    mqttConfig["will"] = (
+        "bbqmonitor/connection/{}/updates".format(config.IOT_DEVICE_THING_NAME),
+        ujson.dumps({"state": {"reported": {"connection": "Disconnected"}}})
+    )
+    mqttConfig["subs_cb"] = callback_message_received
+    mqttConfig["connect_coro"] = callback_connection
 
-    client = connect_mqtt(mqttconfig)
+    client = connect_mqtt(mqttConfig)
     fan = Fan()
     servo = Servo()
     temperature = Temperature(fan, servo)

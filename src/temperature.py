@@ -15,8 +15,8 @@ class Temperature:
         fan,
         servo,
         measuring_sensor="temperature1",
-        temperature=0,
-        setpoint=0,
+        temperature=0, 
+        setpoint=-1, #PID update disabled by default
         pid_parameters=PidParameters(),
         output_limits=(0, 100),
         sample_time=1,
@@ -45,6 +45,9 @@ class Temperature:
         return 0, config.SERVO_OPEN
 
     def update(self):
+        if self.setpoint == -1:
+            return
+
         self.pid.tunings = (
             self.pid_parameters.p,
             self.pid_parameters.i,
