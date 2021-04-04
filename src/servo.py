@@ -3,18 +3,19 @@ import config
 
 
 class Servo:
-    MIN_US = 1000
-    MAX_US = 2000
+    MIN_US = 1100
+    MAX_US = 2200
     MIN_ANGLE = 0
     MAX_ANGLE = 180
     DUTY_FUNC_MIN_VALUE = 0
     DUTY_FUNC_MAX_VALUE = 1023
 
-    def __init__(self, angle=0, pin=config.SERVO_PIN, frequency=50):
+    def __init__(self, angle=180, pin=config.SERVO_PIN, frequency=50):
         self.frequency = frequency
         self.pin = Pin(pin)
         self.pwm = PWM(self.pin)
         self.pwm.freq(self.frequency)
+        self._angle = angle
         self.set_angle(angle)
 
     def set_angle(self, angle):
@@ -45,6 +46,10 @@ class Servo:
 
         duty = int(angle * input_per_deg + min_duty_as_input)
         self.pwm.duty(duty)
+        self._angle = angle
+
+    def angle(self):
+        return self._angle
 
     def stop(self):
         self.pwm.deinit()

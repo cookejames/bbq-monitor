@@ -23,4 +23,4 @@ def do_connect():
     if INSTALL_PACKAGES: 
         install_packages()
 
-do_connect()
+# do_connect()

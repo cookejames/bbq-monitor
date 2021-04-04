@@ -15,8 +15,8 @@ class Temperature:
         fan,
         servo,
         measuring_sensor="temperature1",
-        temperature=0, 
-        setpoint=-1, #PID update disabled by default
+        temperature=0,
+        setpoint=-1,  # PID update disabled by default
         pid_parameters=PidParameters(),
         output_limits=(0, 100),
         sample_time=1,
@@ -63,3 +63,4 @@ class Temperature:
                 self.temperature, self.setpoint, value, fan_speed, servo_angle
             )
         )
+        return self.temperature, self.setpoint, fan_speed, servo_angle

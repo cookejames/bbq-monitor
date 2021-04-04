@@ -1,3 +1,4 @@
+import time
 import re
 import ujson
 import uasyncio as asyncio
@@ -22,6 +23,7 @@ client = None
 fan = None
 temperature = None
 servo = None
+last_debug_publish_time = 0
 
 
 async def update_shadow(thing, shadow, message, method="/update"):
@@ -126,6 +128,18 @@ def process_device_message(msg):
         state_changed = True
 
     if (
+        iot.has_property_changed(msg, "servoAngle") is True
+        or iot.is_in_sync(msg, "servoAngle", servo.angle()) is False
+    ):
+        if "servoAngle" in msg["state"]["desired"].keys():
+            angle = msg["state"]["desired"]["servoAngle"]
+            print("Updating servo angle to:", angle)
+            servo.set_angle(angle)
+
+        state["state"]["reported"]["servoAngle"] = servo.angle()
+        state_changed = True
+
+    if (
         iot.has_property_changed(msg, "sensor") is True
         or iot.is_in_sync(msg, "sensor", temperature.measuring_sensor) is False
     ):
@@ -190,7 +204,21 @@ def callback_message_received(topic, msg, retained):
 async def run():
     await client.connect()
     while True:
-        temperature.update()
+        result = temperature.update()
+        global last_debug_publish_time
+        if config.IOT_PUBLISH_DEBUG and result is not None and time.time() - last_debug_publish_time > config.IOT_DEBUG_PERIOD :
+            print("Debug publishing to ", config.IOT_DEBUG_TOPIC)
+            temp, setpoint, fan_speed, servo_angle = result
+            message = {
+                "pid": {
+                    "temperature": temp,
+                    "setpoint": setpoint,
+                    "fanSpeed": fan_speed,
+                    "servoAngle": servo_angle,
+                }
+            }
+            await client.publish(config.IOT_DEBUG_TOPIC, ujson.dumps(message))
+            last_debug_publish_time = time.time()
         await asyncio.sleep(1)
 
 
@@ -198,7 +226,7 @@ def main():
     global client, fan, temperature, servo
     mqttConfig["will"] = (
         "bbqmonitor/connection/{}/updates".format(config.IOT_DEVICE_THING_NAME),
-        ujson.dumps({"state": {"reported": {"connection": "Disconnected"}}})
+        ujson.dumps({"state": {"reported": {"connection": "Disconnected"}}}),
     )
     mqttConfig["subs_cb"] = callback_message_received
     mqttConfig["connect_coro"] = callback_connection
@@ -213,6 +241,7 @@ def main():
     finally:
         print("Closing...")
         fan.stop()
+        servo.stop()
         client.close()  # Prevent LmacRxBlk:1 errors
 
 
