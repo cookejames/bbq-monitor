@@ -1,39 +1,116 @@
 from aws_cdk import core as cdk
-import aws_cdk.aws_timestream as timestream
+import aws_cdk.aws_iot as iot
+import aws_cdk.aws_iam as iam
+from timestream import Database, RetentionProperties
+from iot_rule import (
+    CustomSdkTimestreamRule,
+    Rule,
+    TimestreamAction,
+    TimestreamDimension,
+    TopicRulePayload,
+    TimestreamRulePayload
+)
 
 
 class IoTStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Create Timestream database
-        database = timestream.CfnDatabase(
-            self, "TimestreamDatabase", database_name="bbqmonitor"
+        # Create Timestream database and table
+        database = Database(self, "TimestreamDatabase", "bbqmonitor")
+        connection_table = database.create_table(
+            "connection", RetentionProperties(1, 30)
+        )
+        measurement_table = database.create_table(
+            "measurements", RetentionProperties(6, 365)
+        )
+        debug_table = database.create_table("debug", RetentionProperties(1, 30))
+
+        # Create rules
+        iam_connection_republish_role = iam.Role(
+            self,
+            id="iot-rule-action-republish",
+            assumed_by=iam.ServicePrincipal("iot.amazonaws.com"),
+            inline_policies={
+                "republish": iam.PolicyDocument(
+                    statements=[
+                        iam.PolicyStatement(
+                            effect=iam.Effect("ALLOW"),
+                            actions=["iot:Publish"],
+                            resources=[
+                                "arn:aws:iot:eu-west-1:*:topic/$aws/things/*/shadow/name/connection/update"
+                            ],
+                        )
+                    ]
+                )
+            },
         )
 
-        # Create tables
-        connectionTable = timestream.CfnTable(
+        connection_rule = Rule(
             self,
-            "connection",
-            database_name="bbqmonitor",
-            table_name="connection",
-            retention_properties={"MemoryStoreRetentionPeriodInHours": 1, "MagneticStoreRetentionPeriodInDays": 30},
+            "republish_rule",
+            "bbq_monitor_connect_republish",
+            topic_rule_payload=TopicRulePayload(
+                sql="SELECT * FROM 'bbqmonitor/connection/+/updates'",
+                actions=[
+                    {
+                        "republish": iot.CfnTopicRule.RepublishActionProperty(
+                            role_arn=iam_connection_republish_role.role_arn,
+                            topic="$$aws/things/${topic(3)}/shadow/name/connection/update",
+                            qos=1,
+                        )
+                    }
+                ],
+            ),
         )
-        connectionTable.add_depends_on(database)
-        measurementTable = timestream.CfnTable(
+
+        timestream_connection_rule = CustomSdkTimestreamRule(
             self,
-            "measurements",
-            database_name="bbqmonitor",
-            table_name="measurements",
-            retention_properties={"MemoryStoreRetentionPeriodInHours": 6, "MagneticStoreRetentionPeriodInDays": 365},
+            "bbq_device_connected",
+            TimestreamRulePayload(
+                sql="SELECT state.reported.* FROM '$aws/things/+/shadow/name/connection/update/accepted'",
+                actions=[
+                    TimestreamAction(
+                        scope=self,
+                        construct_id="bbq_device_connected_action",
+                        database_name=database.name,
+                        table_name=connection_table.table_name,
+                        dimensions=[TimestreamDimension("device", "${topic(3)}")],
+                    )
+                ],
+            ),
         )
-        measurementTable.add_depends_on(database)
-        debugTable = timestream.CfnTable(
+
+        timestream_temperature_monitoring_rule = CustomSdkTimestreamRule(
             self,
-            "debug",
-            database_name="bbqmonitor",
-            table_name="debug",
-            retention_properties={"MemoryStoreRetentionPeriodInHours": 6, "MagneticStoreRetentionPeriodInDays": 30},
+            "bbq_device_temperature_monitoring",
+            TimestreamRulePayload(
+                sql="SELECT state.reported.* FROM '$aws/things/+/shadow/name/temperature/update/accepted'",
+                actions=[
+                    TimestreamAction(
+                        scope=self,
+                        construct_id="bbq_device_temperature_monitoring_action",
+                        database_name=database.name,
+                        table_name=measurement_table.table_name,
+                        dimensions=[TimestreamDimension("device", "${topic(3)}"), TimestreamDimension("metric", "temperature")],
+                    )
+                ],
+            ),
         )
-        debugTable.add_depends_on(database)
-        
+
+        timestream_pid_debug_rule = CustomSdkTimestreamRule(
+            self,
+            "bbq_pid_debug",
+            TimestreamRulePayload(
+                sql="SELECT pid.* FROM 'bbqmonitor/debug/+/updates'",
+                actions=[
+                    TimestreamAction(
+                        scope=self,
+                        construct_id="bbq_pid_debug_action",
+                        database_name=database.name,
+                        table_name=debug_table.table_name,
+                        dimensions=[TimestreamDimension("device", "${topic(3)}"), TimestreamDimension("metric", "pid_output")],
+                    )
+                ],
+            ),
+        )
