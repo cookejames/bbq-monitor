@@ -1,4 +1,0 @@
-asyncio
-micropython-mqtt
-micropython-umqtt-simple
-simple-pid
