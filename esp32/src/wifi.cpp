@@ -37,7 +37,6 @@ bool Wifi::check()
 {
   if (isConnected())
   {
-    Log.verbose("WiFi check - connected");
     return true;
   }
   else if (millis() > startTime + waitTime)

@@ -1,13 +1,14 @@
 #include <Arduino.h>
 #include <ArduinoLog.h>
+#include <ArduinoJson.h>
 #include <ibbq.h>
 #include <wifi.h>
 #include <awsiot.h>
-#include <ArduinoJson.h>
-
-#define STATUS_PIN 2
+#include <controller.h>
+#include <config.h>
 
 Wifi wifi;
+Controller controller;
 
 void status(bool ok)
 {
@@ -16,32 +17,18 @@ void status(bool ok)
 
 void temperatureReceivedCallback(uint16_t temperatures[], uint8_t numProbes)
 {
-  for (uint8_t i = 0; i < numProbes; i++)
-  {
-    Log.verbose("Temperature %d: %d", i, temperatures[i]);
-  }
-  // Log.trace("MQTT publish");
-  // StaticJsonDocument<200> doc;
-  // doc["time"] = millis();
-  // doc["sensor_a0"] = millis();
-  // char jsonBuffer[512];
-  // serializeJson(doc, jsonBuffer); // print to client
+  controller.processTemperatureResult(temperatures, numProbes);
 }
 
 void mqttMessageHandler(String &topic, String &payload)
 {
-  Log.trace("incoming: %s - %s", topic.c_str(), payload.c_str());
-
-  // StaticJsonDocument<200> doc;
-  // deserializeJson(doc, payload);
-  // const char *message = doc["message"];
-  // Log.notice("%s", message);
+  Log.verbose("MQTT message: %s - %s", topic.c_str(), payload.c_str());
 }
 
 void setup()
 {
   Serial.begin(115200);
-  Log.begin(LOG_LEVEL_TRACE, &Serial, true);
+  Log.begin(LOG_LEVEL, &Serial, true);
   Log.setSuffix([](Print *_logOutput) { _logOutput->print('\n'); });
 
   //Setup the status pin
