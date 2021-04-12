@@ -1,12 +1,15 @@
 #ifndef controller_h
 #define controller_h
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 class Controller
 {
 public:
   // Controller();
   void processTemperatureResult(uint16_t[], uint8_t);
+  void processDesiredState(JsonObject);
+  void setProbe(uint8_t);
 
 private:
   uint8_t probe = 0;
@@ -14,7 +17,7 @@ private:
   uint16_t temperature = 0;
   uint16_t temperatures[4] = {0, 0, 0, 0};
   uint8_t numProbes = 4;
-  void publishTemperatures();
+  void updateTemperatureShadow();
 };
 
 #endif

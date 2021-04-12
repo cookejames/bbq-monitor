@@ -23,6 +23,18 @@ void temperatureReceivedCallback(uint16_t temperatures[], uint8_t numProbes)
 void mqttMessageHandler(String &topic, String &payload)
 {
   Log.verbose("MQTT message: %s - %s", topic.c_str(), payload.c_str());
+  StaticJsonDocument<1000> doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error)
+  {
+    Log.error("Error deserialising MQTT: %s", error.c_str());
+    return;
+  }
+  if (doc["state"]["desired"])
+  {
+    Log.trace("Received desired state from Aws IoT");
+    controller.processDesiredState(doc["state"]["desired"]);
+  }
 }
 
 void setup()
