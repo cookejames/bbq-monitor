@@ -2,7 +2,16 @@
 #define wifi_h
 #include <Arduino.h>
 
-bool wifiConnected();
-bool wifiConnect();
+class Wifi
+{
+public:
+  bool isConnected();
+  bool connect();
+  bool check();
+
+private:
+  unsigned long startTime;
+  const unsigned long waitTime = 60 * 1000;
+};
 
 #endif

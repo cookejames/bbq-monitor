@@ -22,6 +22,7 @@ void scanEndedCB(NimBLEScanResults results);
 
 static NimBLEAdvertisedDevice *advDevice;
 
+static bool connected = false;
 static bool doConnect = false;
 static uint32_t scanTime = 0; /** 0 = scan forever */
 
@@ -29,12 +30,14 @@ class ClientCallbacks : public NimBLEClientCallbacks
 {
   void onConnect(NimBLEClient *pClient)
   {
-    Log.trace("Client connected");
+    Log.trace("BLE client connected");
+    connected = true;
   };
 
   void onDisconnect(NimBLEClient *pClient)
   {
     Log.notice("%s Disconnected - Starting scan", pClient->getPeerAddress().toString().c_str());
+    connected = false;
     NimBLEDevice::getScan()->start(scanTime, scanEndedCB);
   };
 };
@@ -47,7 +50,7 @@ class AdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks
 
   void onResult(NimBLEAdvertisedDevice *advertisedDevice)
   {
-    Log.verbose("Advertised Device found: %s", advertisedDevice->toString().c_str());
+    Log.verbose("BLE Advertised Device found: %s", advertisedDevice->toString().c_str());
     if (String("iBBQ").equals(advertisedDevice->getName().c_str()) && advertisedDevice->isAdvertisingService(PRIMARY_UUID))
     {
       Log.notice("Found iBBQ Device");
@@ -86,8 +89,7 @@ void notifyCB(NimBLERemoteCharacteristic *pRemoteCharacteristic, uint8_t *pData,
         result[i / 2] = value;
       }
     }
-    //TODO replace with return
-    // Log.notice("Reading: %d:%d:%d:%d", result[0], result[1], result[2], result[3]);
+
     _temperatureResultCallback(result, numProbes);
   }
 }
@@ -95,7 +97,7 @@ void notifyCB(NimBLERemoteCharacteristic *pRemoteCharacteristic, uint8_t *pData,
 /** Callback to process the results of the last scan or restart it */
 void scanEndedCB(NimBLEScanResults results)
 {
-  Log.notice("Scan Ended");
+  Log.notice("BLE Scan Ended");
 }
 
 /** Handles the provisioning of clients and connects / interfaces with the server */
@@ -115,10 +117,10 @@ bool connectToServer()
     {
       if (!pClient->connect(advDevice, false))
       {
-        Log.notice("Reconnect failed");
+        Log.notice("BLE reconnect failed");
         return false;
       }
-      Log.notice("Reconnected client");
+      Log.notice("BLE reconnected client");
     }
     /** We don't already have a client that knows this device,
          *  we will check for a client that is disconnected that we can use.
@@ -134,13 +136,13 @@ bool connectToServer()
   {
     if (NimBLEDevice::getClientListSize() >= NIMBLE_MAX_CONNECTIONS)
     {
-      Log.error("Max clients reached - no more connections available");
+      Log.error("BLE max clients reached - no more connections available");
       return false;
     }
 
     pClient = NimBLEDevice::createClient();
 
-    Log.verbose("New client created");
+    Log.verbose("BLE new client created");
 
     pClient->setClientCallbacks(&clientCB, false);
 
@@ -148,7 +150,7 @@ bool connectToServer()
     {
       /** Created a client but failed to connect, don't need to keep it as it has no data */
       NimBLEDevice::deleteClient(pClient);
-      Log.notice("Failed to connect, deleted client");
+      Log.notice("BLE failed to connect, deleted client");
       return false;
     }
   }
@@ -157,13 +159,12 @@ bool connectToServer()
   {
     if (!pClient->connect(advDevice))
     {
-      Log.warning("Failed to connect");
+      Log.warning("BLE failed to connect");
       return false;
     }
   }
 
-  Log.trace("Connected to: %s", pClient->getPeerAddress().toString().c_str());
-  Log.trace("RSSI: %d", pClient->getRssi());
+  Log.trace("BLE connected to: %s, RSSI: %d", pClient->getPeerAddress().toString().c_str(), pClient->getRssi());
 
   /** Now we can read/write/subscribe the charateristics of the services we are interested in */
   NimBLERemoteService *pSvc = nullptr;
@@ -193,7 +194,7 @@ bool connectToServer()
   }
   else
   {
-    Log.warning("Primary service not found.");
+    Log.warning("BLE primary service not found.");
   }
 
   pSvc = pClient->getService(PRIMARY_UUID);
@@ -216,7 +217,7 @@ bool connectToServer()
   }
   else
   {
-    Log.warning("Primary service not found.");
+    Log.warning("BLE primary service not found.");
   }
 
   pSvc = pClient->getService(PRIMARY_UUID);
@@ -239,7 +240,7 @@ bool connectToServer()
   }
   else
   {
-    Log.warning("Primary service not found.");
+    Log.warning("BLE primary service not found.");
   }
 
   pSvc = pClient->getService(PRIMARY_UUID);
@@ -266,9 +267,9 @@ bool connectToServer()
   }
   else
   {
-    Log.warning("Primary service not found.");
+    Log.warning("BLE primary service not found.");
   }
-  Log.trace("Done connecting to the device!");
+  Log.trace("Done connecting to the BLE device!");
   return true;
 }
 
@@ -317,13 +318,18 @@ void iBBQ::check()
   /** Found a device we want to connect to, do it now */
   if (connectToServer())
   {
-    Log.verbose("Success! we should now be getting notifications");
+    Log.verbose("Success! we should now be getting BLE notifications");
   }
   else
   {
-    Log.warning("Failed to connect!");
+    Log.warning("BLE failed to connect!");
     delay(2);
-    Log.notice("Starting scan");
+    Log.notice("Starting BLE scan");
     NimBLEDevice::getScan()->start(scanTime, scanEndedCB);
   }
+}
+
+bool iBBQ::isConnected()
+{
+  return connected;
 }
