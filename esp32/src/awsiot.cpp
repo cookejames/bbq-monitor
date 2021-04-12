@@ -1,6 +1,5 @@
 #include <awsiot.h>
 #include <secrets.h>
-#include <ArduinoJson.h>
 #include <ArduinoLog.h>
 
 #define AWS_SHADOW_TOPIC "$aws/things/%s/shadow/name/%s/%s"

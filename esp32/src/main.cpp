@@ -3,6 +3,7 @@
 #include <ibbq.h>
 #include <wifi.h>
 #include <awsiot.h>
+#include <ArduinoJson.h>
 
 #define STATUS_PIN 2
 
