@@ -4,3 +4,5 @@
 .vscode/launch.json
 .vscode/ipch
 .vscode
+certs/
+lib/secrets/secrets.h
