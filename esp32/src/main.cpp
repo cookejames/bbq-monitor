@@ -41,6 +41,7 @@ void setup()
 {
   Serial.begin(115200);
   Log.begin(LOG_LEVEL, &Serial, true);
+  Log.setPrefix([](Print *_logOutput) {   char c[12];int m = sprintf(c, "%10lu ", millis());_logOutput->print(c); });
   Log.setSuffix([](Print *_logOutput) { _logOutput->print('\n'); });
 
   //Setup the status pin
@@ -66,14 +67,21 @@ void setup()
   }
 }
 
+long lastMemoryReport = 0;
 void loop()
 {
   // Set the status LED
   status(wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected());
-  Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d", ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+
+  if (millis() > lastMemoryReport + 30000)
+  {
+    Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d", ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+    lastMemoryReport = millis();
+  }
 
   iBBQ::check();
   wifi.check();
   AwsIot::check();
+  controller.run();
   delay(1000);
 }
