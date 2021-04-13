@@ -64,10 +64,41 @@ void Controller::setProbe(uint8_t number)
 
 void Controller::processDesiredState(JsonObject desired)
 {
-  if (desired["value"] && (uint16_t)desired["value"] != setpoint)
+  if (desired["value"] && (int16_t)desired["value"] != setpoint)
   {
-    setpoint = (uint16_t)desired["value"];
+    setpoint = (int16_t)desired["value"];
     Log.notice("Controller setpoint updated to %d", setpoint);
-    //TODO publish update
   }
+
+  if (desired["sensor"] && (uint8_t)desired["sensor"] != probe)
+  {
+    if ((uint8_t)desired["sensor"] > numProbes - 1)
+    {
+      Log.warning("Received invalid request to set probe to %d. Ignoring.", (uint8_t)desired["sensor"]);
+    }
+    else
+    {
+      probe = (uint8_t)desired["sensor"];
+      Log.notice("Controller probe updated to %d", probe);
+    }
+  }
+
+  // Publish the current state
+  updateSetpointShadow();
+}
+
+void Controller::updateSetpointShadow()
+{
+  const int capacity = JSON_OBJECT_SIZE(10);
+  StaticJsonDocument<capacity> doc;
+  JsonObject state = doc.createNestedObject("state");
+  JsonObject reported = state.createNestedObject("reported");
+  reported["value"] = setpoint;
+  reported["sensor"] = probe;
+  reported["fanSpeed"] = fanSpeed;
+  reported["servoAngle"] = servoAngle;
+
+  char output[128];
+  serializeJson(doc, output);
+  AwsIot::publishToShadow("setpoint", "update", output);
 }

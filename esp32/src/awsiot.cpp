@@ -9,10 +9,24 @@
 static WiFiClientSecure net = WiFiClientSecure();
 static MQTTClient client = MQTTClient(4000);
 static MqttMessageHandler messageHandler = [](String &topic, String &payload) { return; };
+static unsigned long startTime = 0;
 
 bool AwsIot::publish(const char *topic, const char *message)
 {
-  return client.publish(topic, message);
+  Log.trace("IoT publishing to: %s - %s", topic, message);
+  if (!isConnected())
+  {
+    Log.warning("AWS IOT cannot publish - disconnected");
+    return false;
+  }
+
+  bool success = client.publish(topic, message);
+  if (!success)
+  {
+    lwmqtt_err_t error = client.lastError();
+    Log.error("AWS IOT publish failed: %d", error);
+  }
+  return success;
 }
 
 void AwsIot::setMessageHander(MqttMessageHandler handler)
@@ -21,11 +35,12 @@ void AwsIot::setMessageHander(MqttMessageHandler handler)
   client.onMessage(handler);
 }
 
-void AwsIot::connect()
+bool AwsIot::connect()
 {
+  startTime = millis();
   if (isConnected())
   {
-    return;
+    return true;
   }
 
   // Configure WiFiClientSecure to use the AWS IoT device credentials
@@ -42,6 +57,8 @@ void AwsIot::connect()
   char willTopic[200];
   sprintf(willTopic, "bbqmonitor/connection/%s/updates", THINGNAME);
   client.setWill(willTopic, DISCONNECTION_MESSAGE);
+  client.setTimeout(2000);
+  client.setKeepAlive(30);
 
   Log.notice("Connecting to AWS IOT");
 
@@ -53,13 +70,14 @@ void AwsIot::connect()
   if (!isConnected())
   {
     Log.error("AWS IoT Timeout!");
-    return;
+    return false;
   }
 
   Log.notice("AWS IoT Connected!");
 
   subscribe();
   publishToShadow("connection", "update", CONNECTION_MESSAGE);
+  return true;
 }
 
 bool AwsIot::isConnected()
@@ -85,7 +103,6 @@ void AwsIot::publishToShadow(const char *shadowName, const char *method, const c
 {
   char topic[200];
   sprintf(topic, AWS_SHADOW_TOPIC, THINGNAME, shadowName, method);
-  Log.trace("IoT publishing to: %s - %s", topic, message);
   publish(topic, message);
 }
 
@@ -97,6 +114,30 @@ void AwsIot::check()
   }
   else
   {
-    Log.warning("AwsIot disconnected.");
+    if (millis() > startTime + waitTime)
+    {
+      Log.warning("AwsIot disconnected. Reconnecting.");
+      Log.error("AWS IOT last error was: return code %d, error %d", client.returnCode(), client.lastError());
+      // lwmqtt_err_t error = client.lastError();
+      // switch (error)
+      // {
+      // case LWMQTT_NETWORK_FAILED_CONNECT:
+      // case LWMQTT_NETWORK_TIMEOUT:
+      // case LWMQTT_NETWORK_FAILED_READ:
+      // case LWMQTT_NETWORK_FAILED_WRITE:
+      // case LWMQTT_CONNECTION_DENIED:
+      // case LWMQTT_PONG_TIMEOUT:
+
+      //   break;
+      // default:
+      //   break;
+      // }
+      client.disconnect();
+      bool success = connect();
+      if (!success)
+      {
+        Log.error("AWS IOT reconnected failed: %d", client.lastError());
+      }
+    }
   }
 }

@@ -11,7 +11,7 @@ class AwsIot
 public:
   AwsIot();
   static void setMessageHander(MqttMessageHandler);
-  static void connect();
+  static bool connect();
   static void check();
   static bool isConnected();
   static void publishToShadow(const char *, const char *, const char *);
@@ -20,6 +20,7 @@ private:
   static bool publish(const char *, const char *);
   static void subscribe();
   static void subscribeToShadow(const char *, const char *);
+  static const unsigned long waitTime = 30 * 1000;
 };
 
 #endif

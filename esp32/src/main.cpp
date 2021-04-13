@@ -70,6 +70,7 @@ void loop()
 {
   // Set the status LED
   status(wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected());
+  Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d", ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
 
   iBBQ::check();
   wifi.check();
