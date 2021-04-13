@@ -7,7 +7,7 @@
 
 Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 4, Ki = 0.0035, Kd = 5, P_ON_E, DIRECT)
 {
-  pid.SetOutputLimits(0, 10);
+  pid.SetOutputLimits(0, 100);
   pid.SetSampleTime(1000);
   if (setpoint == SETPOINT_MANUAL_OVERRIDE)
   {
@@ -47,12 +47,12 @@ void Controller::run()
     pid.Compute();
 
     // Update outputs
-    fanSpeed = pidOutput * 10;
+    fanSpeed = pidOutput;
     servoAngle = fanSpeed > 0 ? SERVO_OPEN : SERVO_CLOSED;
     updateFanSpeed();
     updateServoAngle();
 
-    if (oldOutput != pidOutput)
+    if ((int)oldOutput != (int)pidOutput)
     {
       Log.notice("Controller changed output to: Fan %dpc Servo %ddeg Setpoint %dC", fanSpeed, servoAngle, setpoint);
       updateSetpointShadow();
