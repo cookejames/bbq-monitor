@@ -16,7 +16,7 @@ public:
 
 private:
   uint8_t probe = 0;
-  uint16_t setpoint = 0;
+  int16_t setpoint = 0;
   uint8_t servoAngle = SERVO_OPEN;
   uint8_t fanSpeed = 100;
   uint8_t numProbes = 4;

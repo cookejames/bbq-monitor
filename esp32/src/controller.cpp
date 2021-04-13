@@ -25,10 +25,18 @@ void Controller::run()
 {
   if (setpoint == SETPOINT_MANUAL_OVERRIDE)
   {
+    if (pid.GetMode() == AUTOMATIC)
+    {
+      Log.notice("Changing PID mode to manual");
+    }
     pid.SetMode(MANUAL);
   }
   else
   {
+    if (pid.GetMode() == MANUAL)
+    {
+      Log.notice("Changing PID mode to automatic");
+    }
     // Capture the before value
     double oldOutput = pidOutput;
 
@@ -113,9 +121,9 @@ void Controller::setProbe(uint8_t number)
 
 void Controller::processDesiredState(JsonObject desired)
 {
-  if (desired.containsKey("value") && (uint16_t)desired["value"] != setpoint)
+  if (desired.containsKey("value") && (int16_t)desired["value"] != setpoint)
   {
-    setpoint = (uint16_t)desired["value"];
+    setpoint = (int16_t)desired["value"];
     Log.notice("Controller setpoint updated to %d", setpoint);
   }
 
