@@ -19,12 +19,15 @@ class IoTStack(cdk.Stack):
         # Create Timestream database and table
         database = Database(self, "TimestreamDatabase", "bbqmonitor")
         connection_table = database.create_table(
-            "connection", RetentionProperties(1, 30)
+            "connection", RetentionProperties(6, 30)
         )
         measurement_table = database.create_table(
             "measurements", RetentionProperties(6, 365)
         )
-        debug_table = database.create_table("debug", RetentionProperties(1, 30))
+        device_table = database.create_table(
+            "device", RetentionProperties(6, 30)
+        )
+        debug_table = database.create_table("debug", RetentionProperties(6, 30))
 
         # Create rules
         iam_connection_republish_role = iam.Role(
@@ -110,6 +113,23 @@ class IoTStack(cdk.Stack):
                         database_name=database.name,
                         table_name=debug_table.table_name,
                         dimensions=[TimestreamDimension("device", "${topic(3)}"), TimestreamDimension("metric", "pid_output")],
+                    )
+                ],
+            ),
+        )
+
+        timestream_device_rule = CustomSdkTimestreamRule(
+            self,
+            "bbq_device_setpoint_monitoring",
+            TimestreamRulePayload(
+                sql="SELECT state.reported.* FROM '$aws/things/+/shadow/name/setpoint/update/accepted'",
+                actions=[
+                    TimestreamAction(
+                        scope=self,
+                        construct_id="bbq_device_setpoint_monitoring_action",
+                        database_name=database.name,
+                        table_name=device_table.table_name,
+                        dimensions=[TimestreamDimension("device", "${topic(3)}"), TimestreamDimension("metric", "setpoint")],
                     )
                 ],
             ),
