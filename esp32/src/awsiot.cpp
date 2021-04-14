@@ -7,7 +7,7 @@
 #define DISCONNECTION_MESSAGE "{\"state\": {\"reported\": {\"connection\": \"Disconnected\"}}}"
 
 static WiFiClientSecure net = WiFiClientSecure();
-static MQTTClient client = MQTTClient(4000);
+static MQTTClient client = MQTTClient(10000);
 static MqttMessageHandler messageHandler = [](String &topic, String &payload) { return; };
 static unsigned long startTime = 0;
 
@@ -97,6 +97,8 @@ void AwsIot::subscribe()
 {
   subscribeToShadow("setpoint", "get/accepted");
   subscribeToShadow("setpoint", "update/accepted");
+  subscribeToShadow("pid", "get/accepted");
+  subscribeToShadow("pid", "update/accepted");
 }
 
 void AwsIot::publishToShadow(const char *shadowName, const char *method, const char *message)
@@ -118,20 +120,6 @@ void AwsIot::check()
     {
       Log.warning("AwsIot disconnected. Reconnecting.");
       Log.error("AWS IOT last error was: return code %d, error %d", client.returnCode(), client.lastError());
-      // lwmqtt_err_t error = client.lastError();
-      // switch (error)
-      // {
-      // case LWMQTT_NETWORK_FAILED_CONNECT:
-      // case LWMQTT_NETWORK_TIMEOUT:
-      // case LWMQTT_NETWORK_FAILED_READ:
-      // case LWMQTT_NETWORK_FAILED_WRITE:
-      // case LWMQTT_CONNECTION_DENIED:
-      // case LWMQTT_PONG_TIMEOUT:
-
-      //   break;
-      // default:
-      //   break;
-      // }
       client.disconnect();
       bool success = connect();
       if (!success)

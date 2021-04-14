@@ -4,60 +4,82 @@
 #include <awsiot.h>
 
 #define SETPOINT_MANUAL_OVERRIDE -1
+#define FAN_FREQUENCY 25000
+#define FAN_CHANNEL 0
+#define FAN_RESOLUTION 8
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 4, Ki = 0.0035, Kd = 5, P_ON_E, DIRECT)
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.01, Kd = 3, P_ON_M, REVERSE)
 {
   pid.SetOutputLimits(0, 100);
-  pid.SetSampleTime(1000);
-  if (setpoint == SETPOINT_MANUAL_OVERRIDE)
-  {
-    pid.SetMode(MANUAL);
-  }
-  else
+  pid.SetSampleTime(200);
+  if (isAutomaticControl())
   {
     pid.SetMode(AUTOMATIC);
   }
+  else
+  {
+    pid.SetMode(MANUAL);
+  }
+  updatePidShadow();
+
+  servo.attach(SERVO_PIN, 1100, 2200);
+  fan.attachPin(FAN_PWM_PIN, FAN_FREQUENCY, FAN_RESOLUTION);
+
   updateFanSpeed();
   updateServoAngle();
 }
 
+bool Controller::isAutomaticControl()
+{
+  return setpoint != SETPOINT_MANUAL_OVERRIDE;
+}
+
 void Controller::run()
 {
-  if (setpoint == SETPOINT_MANUAL_OVERRIDE)
-  {
-    if (pid.GetMode() == AUTOMATIC)
-    {
-      Log.notice("Changing PID mode to manual");
-    }
-    pid.SetMode(MANUAL);
-  }
-  else
+  if (isAutomaticControl())
   {
     if (pid.GetMode() == MANUAL)
     {
       Log.notice("Changing PID mode to automatic");
+      pid.SetMode(AUTOMATIC);
+      updatePidShadow();
     }
     // Capture the before value
     double oldOutput = pidOutput;
 
     // Update variables
-    pid.SetMode(AUTOMATIC);
     pidSetpoint = setpoint;
     pidInput = temperature;
     pid.Compute();
 
     // Update outputs
     fanSpeed = pidOutput;
-    servoAngle = fanSpeed > 0 ? SERVO_OPEN : SERVO_CLOSED;
+    scaleServoAngle();
     updateFanSpeed();
     updateServoAngle();
 
     if ((int)oldOutput != (int)pidOutput)
     {
-      Log.notice("Controller changed output to: Fan %dpc Servo %ddeg Setpoint %dC", fanSpeed, servoAngle, setpoint);
+      Log.notice("Temperature is %dC, setpoint is %dC, controller output changed to: Fan %dpc Servo %ddeg", temperature, setpoint, fanSpeed, servoAngle);
       updateSetpointShadow();
     }
   }
+  else
+  {
+
+    if (pid.GetMode() == AUTOMATIC)
+    {
+      Log.notice("Changing PID mode to manual");
+    }
+    pid.SetMode(MANUAL);
+  }
+}
+
+void Controller::scaleServoAngle()
+{
+  uint16_t range = SERVO_OPEN - SERVO_CLOSED;
+  // Open fully once we get close
+  servoAngle = fanSpeed > 90 ? SERVO_OPEN : (double)fanSpeed / (double)100 * (double)range;
 }
 
 void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _numProbes)
@@ -67,6 +89,7 @@ void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _num
     numProbes = _numProbes;
   }
   bool changed = false;
+  bool probesToUpdate[4] = {false, false, false, false};
   for (int i = 0; i < _numProbes; i++)
   {
     // Check if the temperature has changed
@@ -76,6 +99,7 @@ void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _num
       Log.trace("Temperature probe %d updated to %d", i, _temperatures[i]);
       changed = true;
       temperatures[i] = _temperatures[i];
+      probesToUpdate[i] = true;
     }
 
     // Update the temperature for the probe we are monitoring
@@ -86,19 +110,25 @@ void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _num
   }
   if (changed)
   {
-    updateTemperatureShadow();
+    updateTemperatureShadow(probesToUpdate);
   }
 }
 
 void Controller::updateTemperatureShadow()
 {
-  const int capacity = JSON_OBJECT_SIZE(6);
+  bool probes[4] = {true, true, true, true};
+  return updateTemperatureShadow(probes);
+}
+
+void Controller::updateTemperatureShadow(bool probesToUpdate[])
+{
+  const int capacity = JSON_OBJECT_SIZE(20);
   StaticJsonDocument<capacity> doc;
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
   for (int i = 0; i < numProbes; i++)
   {
-    if (temperatures[i] != IBBQ_NO_VALUE)
+    if (temperatures[i] != IBBQ_NO_VALUE && probesToUpdate[i])
     {
       char buffer[10];
       sprintf(buffer, "%d", i);
@@ -119,7 +149,7 @@ void Controller::setProbe(uint8_t number)
   probe = number;
 }
 
-void Controller::processDesiredState(JsonObject desired)
+void Controller::processSetpointDesiredState(JsonObject desired)
 {
   if (desired.containsKey("value") && (int16_t)desired["value"] != setpoint)
   {
@@ -140,7 +170,7 @@ void Controller::processDesiredState(JsonObject desired)
     }
   }
 
-  if (setpoint == SETPOINT_MANUAL_OVERRIDE)
+  if (!isAutomaticControl())
   {
     if (desired.containsKey("fanSpeed") && (uint16_t)desired["fanSpeed"] != fanSpeed)
     {
@@ -160,10 +190,34 @@ void Controller::processDesiredState(JsonObject desired)
   updateSetpointShadow();
 }
 
+void Controller::processPidDesiredState(JsonObject desired)
+{
+  if (desired.containsKey("Kp") && (double)desired["Kp"] != pid.GetKp())
+  {
+    pid.SetTunings((double)desired["Kp"], pid.GetKi(), pid.GetKd());
+    Log.notice("Controller pid Kp updated to %F", pid.GetKp());
+  }
+
+  if (desired.containsKey("Ki") && (double)desired["Ki"] != pid.GetKi())
+  {
+    pid.SetTunings(pid.GetKp(), (double)desired["Ki"], pid.GetKd());
+    Log.notice("Controller pid Ki updated to %F", pid.GetKi());
+  }
+
+  if (desired.containsKey("Kd") && (double)desired["Kd"] != pid.GetKd())
+  {
+    pid.SetTunings(pid.GetKp(), pid.GetKi(), (double)desired["Kd"]);
+    Log.notice("Controller pid Kd updated to %F", pid.GetKd());
+  }
+
+  // Publish the current state
+  updatePidShadow();
+}
+
 void Controller::updateSetpointShadow()
 {
   Log.notice("Controller publishing update of setpoint shadow");
-  const int capacity = JSON_OBJECT_SIZE(10);
+  const int capacity = JSON_OBJECT_SIZE(20);
   StaticJsonDocument<capacity> doc;
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
@@ -179,12 +233,28 @@ void Controller::updateSetpointShadow()
 
 void Controller::updateFanSpeed()
 {
-  // Log.trace("Setting fan speed to %d%", fanSpeed);
-  //TODO implement
+  double duty = ((double)fanSpeed / (double)100) * (double)255;
+  duty = duty > 255 ? 255 : duty;
+  fan.write(duty);
 }
 
 void Controller::updateServoAngle()
 {
-  // Log.trace("Setting servo angle to %d", servoAngle);
-  //TODO implement
+  servo.write(servoAngle);
+}
+
+void Controller::updatePidShadow()
+{
+  Log.notice("Controller publishing update of the pid shadow");
+  const int capacity = JSON_OBJECT_SIZE(20);
+  StaticJsonDocument<capacity> doc;
+  JsonObject state = doc.createNestedObject("state");
+  JsonObject reported = state.createNestedObject("reported");
+  reported["Kp"] = pid.GetKp();
+  reported["Ki"] = pid.GetKi();
+  reported["Kd"] = pid.GetKd();
+
+  char output[128];
+  serializeJson(doc, output);
+  AwsIot::publishToShadow("pid", "update", output);
 }

@@ -7,8 +7,13 @@
 #include <controller.h>
 #include <config.h>
 
+#define STATUS_OK true
+#define STATUS_BAD false
+#define STATUS_PERIOD 5 * 60 * 1000 // 5 minutes
+
 Wifi wifi;
 Controller controller;
+long lastOkTime = 0;
 
 void status(bool ok)
 {
@@ -32,8 +37,19 @@ void mqttMessageHandler(String &topic, String &payload)
   }
   if (doc["state"]["desired"])
   {
-    Log.trace("Received desired state from Aws IoT");
-    controller.processDesiredState(doc["state"]["desired"]);
+    Log.trace("Received desired state from Aws IoT. Topic %s", topic.c_str());
+    if (topic.indexOf("/setpoint/") >= 0)
+    {
+      controller.processSetpointDesiredState(doc["state"]["desired"]);
+    }
+    else if (topic.indexOf("/pid/") >= 0)
+    {
+      controller.processPidDesiredState(doc["state"]["desired"]);
+    }
+    else
+    {
+      Log.warning("Received MQTT message on unknown topic: %s - %s", topic.c_str(), payload.c_str());
+    }
   }
 }
 
@@ -71,7 +87,20 @@ long lastMemoryReport = 0;
 void loop()
 {
   // Set the status LED
-  status(wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected());
+  if (wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected())
+  {
+    status(STATUS_OK);
+    lastOkTime = millis();
+  }
+  else
+  {
+    status(STATUS_BAD);
+    if (millis() > lastOkTime + STATUS_PERIOD)
+    {
+      Log.fatal("Unable to connect for > %dms. Restarting.", STATUS_PERIOD);
+      ESP.restart();
+    }
+  }
 
   if (millis() > lastMemoryReport + 30000)
   {
@@ -83,5 +112,5 @@ void loop()
   wifi.check();
   AwsIot::check();
   controller.run();
-  delay(1000);
+  delay(100);
 }
