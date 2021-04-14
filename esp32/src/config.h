@@ -13,4 +13,7 @@
 #define FAN_PWM_PIN 27
 #define FAN_RPM_PIN 10
 
+#define STARTUP_MODE_PERCENTAGE 1.5
+#define STARTUP_MODE_ENABLED true
+
 #endif

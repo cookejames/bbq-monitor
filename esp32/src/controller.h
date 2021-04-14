@@ -17,22 +17,23 @@ public:
   void run();
 
 private:
+  Servo servo;
+  ESP32PWM fan;
+  PID pid;
   uint8_t probe = 0;
   int16_t setpoint = 110;
   uint8_t servoAngle = SERVO_OPEN;
-  uint8_t fanSpeed = 0;
+  uint8_t fanSpeed = 100;
   uint8_t numProbes = 4;
   uint16_t temperature = 0;
   uint16_t temperatures[4] = {0, 0, 0, 0};
-  PID pid;
   double pidInput = 0;
   double pidOutput = 0;
   double pidSetpoint = 0;
   double Kp;
   double Ki;
   double Kd;
-  Servo servo;
-  ESP32PWM fan;
+  bool isStartupMode();
   void updateTemperatureShadow();
   void updateTemperatureShadow(bool *);
   void updateSetpointShadow();

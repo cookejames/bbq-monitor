@@ -8,7 +8,7 @@
 #define FAN_CHANNEL 0
 #define FAN_RESOLUTION 8
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.01, Kd = 3, P_ON_M, REVERSE)
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 6, Ki = 0.01, Kd = 3, P_ON_M, REVERSE)
 {
   pid.SetOutputLimits(0, 100);
   pid.SetSampleTime(200);
@@ -36,14 +36,43 @@ bool Controller::isAutomaticControl()
 
 void Controller::run()
 {
-  if (isAutomaticControl())
+  if (!isAutomaticControl())
   {
+
+    if (pid.GetMode() == AUTOMATIC)
+    {
+      Log.notice("Changing PID mode to manual");
+      pid.SetMode(MANUAL);
+    }
+    return;
+  }
+
+  // During startup we want to disable PID control, this allows us to 
+  // tune PID just for stabilising the temperature without worrying
+  // about the temperature when we are trying to start the BBQ
+  if (isStartupMode())
+  {
+    if (pid.GetMode() == AUTOMATIC)
+    {
+      Log.notice("Startup mode enabled, controller PID set to manual");
+      pid.SetMode(MANUAL);
+    }
+    if (fanSpeed != 100)
+    {
+      fanSpeed = 100;
+      updateSetpointShadow();
+    }
+  }
+  else
+  {
+
     if (pid.GetMode() == MANUAL)
     {
       Log.notice("Changing PID mode to automatic");
       pid.SetMode(AUTOMATIC);
       updatePidShadow();
     }
+
     // Capture the before value
     double oldOutput = pidOutput;
 
@@ -54,9 +83,6 @@ void Controller::run()
 
     // Update outputs
     fanSpeed = pidOutput;
-    scaleServoAngle();
-    updateFanSpeed();
-    updateServoAngle();
 
     if ((int)oldOutput != (int)pidOutput)
     {
@@ -64,15 +90,11 @@ void Controller::run()
       updateSetpointShadow();
     }
   }
-  else
-  {
 
-    if (pid.GetMode() == AUTOMATIC)
-    {
-      Log.notice("Changing PID mode to manual");
-    }
-    pid.SetMode(MANUAL);
-  }
+  // Update fan and servo themselves. Scale the servo angle based on the fan speed.
+  scaleServoAngle();
+  updateFanSpeed();
+  updateServoAngle();
 }
 
 void Controller::scaleServoAngle()
@@ -225,6 +247,7 @@ void Controller::updateSetpointShadow()
   reported["sensor"] = probe;
   reported["fanSpeed"] = fanSpeed;
   reported["servoAngle"] = servoAngle;
+  reported["startupMode"] = isStartupMode();
 
   char output[128];
   serializeJson(doc, output);
@@ -257,4 +280,10 @@ void Controller::updatePidShadow()
   char output[128];
   serializeJson(doc, output);
   AwsIot::publishToShadow("pid", "update", output);
+}
+
+bool Controller::isStartupMode()
+{
+  // TODO CHANGE DIRECTION
+  return STARTUP_MODE_ENABLED && temperature > STARTUP_MODE_PERCENTAGE * (double)setpoint;
 }
