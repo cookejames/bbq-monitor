@@ -6,8 +6,9 @@
 
 #define SETPOINT_MANUAL_OVERRIDE -1
 #define TIME_BETWEEN_AVERAGE_READINGS 10000
+#define TIME_BETWEEN_SETPOINT_PUBLISH 5 * 60 * 100
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.3, Kd = 3, P_ON_E, REVERSE),
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.15, Kd = 15, P_ON_E, DIRECT),
                            temperatureAverage(30)
 {
 }
@@ -66,7 +67,7 @@ void Controller::run()
     pid.SetMode(MANUAL);
     fanDuty = 0;
     servoOpening = 50;
-    updateSetpointShadow();
+    updateControlStateShadow();
   }
   else if (!shouldLidOpen && lidOpenMode)
   {
@@ -75,7 +76,7 @@ void Controller::run()
     lidOpenModeNextEligibleStart = millis() + LID_OPEN_MODE_DURATION;
     Log.notice("Lid open mode duration has now passed - disabling until %d", lidOpenModeNextEligibleStart);
     pid.SetMode(AUTOMATIC);
-    updateSetpointShadow();
+    updateControlStateShadow();
   }
   // During startup we want to disable PID control, this allows us to
   // tune PID just for stabilising the temperature without worrying
@@ -91,7 +92,7 @@ void Controller::run()
     {
       fanDuty = 100;
       servoOpening = 100;
-      updateSetpointShadow();
+      updateControlStateShadow();
     }
   }
   else
@@ -120,7 +121,7 @@ void Controller::run()
     {
       Log.notice("Temperature is %dC, setpoint is %dC, controller output changed to: Fan duty %dpc, Fan speed %drpm, Servo opening %dpc",
                  temperature, setpoint, fanDuty, damper::getRPM(), servoOpening);
-      updateSetpointShadow();
+      updateControlStateShadow();
     }
   }
 
@@ -199,11 +200,11 @@ void Controller::setProbe(uint8_t number)
   probe = number;
 }
 
-void Controller::processSetpointDesiredState(JsonObject desired)
+void Controller::processControlDesiredState(JsonObject desired)
 {
-  if (desired.containsKey("value") && (int16_t)desired["value"] != setpoint)
+  if (desired.containsKey("setpoint") && (int16_t)desired["setpoint"] != setpoint)
   {
-    setpoint = (int16_t)desired["value"];
+    setpoint = (int16_t)desired["setpoint"];
     Log.notice("Controller setpoint updated to %d", setpoint);
   }
 
@@ -236,7 +237,7 @@ void Controller::processSetpointDesiredState(JsonObject desired)
   }
 
   // Publish the current state
-  updateSetpointShadow();
+  updateControlStateShadow();
 }
 
 void Controller::processPidDesiredState(JsonObject desired)
@@ -263,7 +264,7 @@ void Controller::processPidDesiredState(JsonObject desired)
   updatePidShadow();
 }
 
-void Controller::updateSetpointShadow()
+void Controller::updateControlStateShadow()
 {
   Log.notice("Controller publishing update of setpoint shadow");
   const int capacity = JSON_OBJECT_SIZE(20);
@@ -272,48 +273,50 @@ void Controller::updateSetpointShadow()
   JsonObject reported = state.createNestedObject("reported");
 
   // Keep track of the last reported values so that we only send results that have changed.
-  if (lastSetpoint.value != setpoint)
+  if (lastDeviceState.setpoint != setpoint || millis() > lastSetpointPublishTime + TIME_BETWEEN_SETPOINT_PUBLISH)
   {
-    reported["value"] = setpoint;
-    lastSetpoint.value = setpoint;
+    reported["setpoint"] = setpoint;
+    lastDeviceState.setpoint = setpoint;
+    // Periodically publish the setpoint for graphing purposes
+    lastSetpointPublishTime = millis();
   }
-  if (lastSetpoint.sensor != probe)
+  if (lastDeviceState.sensor != probe)
   {
     reported["sensor"] = probe;
-    lastSetpoint.sensor = probe;
+    lastDeviceState.sensor = probe;
   }
-  if (lastSetpoint.fanDuty != fanDuty)
+  if (lastDeviceState.fanDuty != fanDuty)
   {
     reported["fanDuty"] = fanDuty;
-    lastSetpoint.fanDuty = fanDuty;
+    lastDeviceState.fanDuty = fanDuty;
   }
   uint16_t rpm = damper::getRPM();
-  if (lastSetpoint.fanSpeed != rpm)
+  if (lastDeviceState.fanSpeed != rpm)
   {
     reported["fanSpeed"] = rpm;
-    lastSetpoint.fanSpeed = rpm;
+    lastDeviceState.fanSpeed = rpm;
   }
-  if (lastSetpoint.servoOpening != servoOpening)
+  if (lastDeviceState.servoOpening != servoOpening)
   {
     reported["servoOpening"] = servoOpening;
-    lastSetpoint.servoOpening = servoOpening;
+    lastDeviceState.servoOpening = servoOpening;
   }
   bool startupMode = isStartupMode();
-  if (lastSetpoint.startupMode != startupMode)
+  if (lastDeviceState.startupMode != startupMode)
   {
     reported["startupMode"] = startupMode;
-    lastSetpoint.startupMode = startupMode;
+    lastDeviceState.startupMode = startupMode;
   }
 
-  if (lastSetpoint.lidOpenMode != lidOpenMode)
+  if (lastDeviceState.lidOpenMode != lidOpenMode)
   {
     reported["lidOpenMode"] = lidOpenMode;
-    lastSetpoint.lidOpenMode = lidOpenMode;
+    lastDeviceState.lidOpenMode = lidOpenMode;
   }
 
   char output[128];
   serializeJson(doc, output);
-  AwsIot::publishToShadow("setpoint", "update", output);
+  AwsIot::publishToShadow("controlstate", "update", output);
 }
 
 void Controller::updateDamper()
@@ -340,8 +343,7 @@ void Controller::updatePidShadow()
 
 bool Controller::isStartupMode()
 {
-  // TODO CHANGE DIRECTION
-  return STARTUP_MODE_ENABLED && !lidOpenMode && temperature > STARTUP_MODE_PERCENTAGE * (double)setpoint;
+  return STARTUP_MODE_ENABLED && !lidOpenMode && temperature < STARTUP_MODE_PERCENTAGE * (double)setpoint;
 }
 
 bool Controller::shouldLidOpenMode()

@@ -120,16 +120,16 @@ class IoTStack(cdk.Stack):
 
         timestream_device_rule = CustomSdkTimestreamRule(
             self,
-            "bbq_device_setpoint_monitoring",
+            "bbq_device_controlstate_monitoring",
             TimestreamRulePayload(
-                sql="SELECT state.reported.* FROM '$aws/things/+/shadow/name/setpoint/update/accepted'",
+                sql="SELECT state.reported.* FROM '$aws/things/+/shadow/name/controlstate/update/accepted'",
                 actions=[
                     TimestreamAction(
                         scope=self,
-                        construct_id="bbq_device_setpoint_monitoring_action",
+                        construct_id="bbq_device_controlstate_monitoring_action",
                         database_name=database.name,
                         table_name=device_table.table_name,
-                        dimensions=[TimestreamDimension("device", "${topic(3)}"), TimestreamDimension("metric", "setpoint")],
+                        dimensions=[TimestreamDimension("device", "${topic(3)}"), TimestreamDimension("metric", "control_state")],
                     )
                 ],
             ),

@@ -39,9 +39,9 @@ void mqttMessageHandler(String &topic, String &payload)
   if (doc["state"]["desired"])
   {
     Log.trace("Received desired state from Aws IoT. Topic %s", topic.c_str());
-    if (topic.indexOf("/setpoint/") >= 0)
+    if (topic.indexOf("/controlstate/") >= 0)
     {
-      controller.processSetpointDesiredState(doc["state"]["desired"]);
+      controller.processControlDesiredState(doc["state"]["desired"]);
     }
     else if (topic.indexOf("/pid/") >= 0)
     {
@@ -78,7 +78,7 @@ void setup()
   if (wifi.isConnected())
   {
     AwsIot::connect();
-    AwsIot::publishToShadow("setpoint", "get", "");
+    AwsIot::publishToShadow("controlstate", "get", "");
   }
   else
   {

@@ -6,9 +6,9 @@
 #include <PID_v1.h>
 #include <config.h>
 
-struct Setpoint
+struct ControlState
 {
-  int16_t value;
+  int16_t setpoint;
   uint8_t sensor;
   uint8_t fanDuty;
   int16_t fanSpeed;
@@ -23,7 +23,7 @@ public:
   Controller();
   void setup();
   void processTemperatureResult(uint16_t[], uint8_t);
-  void processSetpointDesiredState(JsonObject);
+  void processControlDesiredState(JsonObject);
   void processPidDesiredState(JsonObject);
   void setProbe(uint8_t);
   uint8_t getFanDuty();
@@ -43,7 +43,8 @@ private:
   uint16_t temperature = 0;
   uint16_t temperatures[4] = {0, 0, 0, 0};
   uint32_t lastAverageReadingTime = 0;
-  Setpoint lastSetpoint = {0,0,0,0,0,false, false};
+  uint32_t lastSetpointPublishTime = 0;
+  ControlState lastDeviceState = {0,0,0,0,0,false, false};
   bool lidOpenMode = false;
   uint32_t lidOpenModeStartTime = 0;
   // Don't enable lid open mode at startup
@@ -58,7 +59,7 @@ private:
   bool shouldLidOpenMode();
   void updateTemperatureShadow();
   void updateTemperatureShadow(bool *);
-  void updateSetpointShadow();
+  void updateControlStateShadow();
   void updatePidShadow();
   void updateDamper();
   bool isAutomaticControl();

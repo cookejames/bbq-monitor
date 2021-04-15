@@ -112,8 +112,8 @@ void AwsIot::subscribeToShadow(const char *shadowName, const char *method)
 
 void AwsIot::subscribe()
 {
-  subscribeToShadow("setpoint", "get/accepted");
-  subscribeToShadow("setpoint", "update/accepted");
+  subscribeToShadow("controlstate", "get/accepted");
+  subscribeToShadow("controlstate", "update/accepted");
   subscribeToShadow("pid", "get/accepted");
   subscribeToShadow("pid", "update/accepted");
 }
