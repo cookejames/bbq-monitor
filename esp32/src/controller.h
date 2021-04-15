@@ -4,12 +4,12 @@
 #include <ArduinoJson.h>
 #include <PID_v1.h>
 #include <config.h>
-#include <ESP32Servo.h>
 
 class Controller
 {
 public:
   Controller();
+  void setup();
   void processTemperatureResult(uint16_t[], uint8_t);
   void processSetpointDesiredState(JsonObject);
   void processPidDesiredState(JsonObject);
@@ -20,8 +20,6 @@ public:
   void run();
 
 private:
-  Servo servo;
-  ESP32PWM fan;
   PID pid;
   uint8_t probe = 0;
   int16_t setpoint = 110;
@@ -42,8 +40,7 @@ private:
   void updateSetpointShadow();
   void updatePidShadow();
   void scaleServoAngle();
-  void updateFanDuty();
-  void updateServoAngle();
+  void updateDamper();
   bool isAutomaticControl();
 };
 

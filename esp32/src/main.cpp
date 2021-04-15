@@ -65,6 +65,8 @@ void setup()
   pinMode(STATUS_PIN, OUTPUT);
   status(STATUS_BAD);
 
+  controller.setup();
+
   // Connect WiFi
   wifi.connect();
 

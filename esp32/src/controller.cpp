@@ -5,11 +5,12 @@
 #include <damper.h>
 
 #define SETPOINT_MANUAL_OVERRIDE -1
-#define FAN_FREQUENCY 25000
-#define FAN_CHANNEL 0
-#define FAN_RESOLUTION 8
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 3, Ki = 0.01, Kd = 6, P_ON_M, REVERSE)
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 3, Ki = 0.005, Kd = 6, P_ON_M, REVERSE)
+{
+}
+
+void Controller::setup()
 {
   pid.SetOutputLimits(0, 100);
   pid.SetSampleTime(200);
@@ -22,12 +23,8 @@ Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 3, Ki =
     pid.SetMode(MANUAL);
   }
 
-  servo.attach(SERVO_PIN, 1100, 2200);
-  fan.attachPin(FAN_PWM_PIN, FAN_FREQUENCY, FAN_RESOLUTION);
   damper::setup();
-
-  updateFanDuty();
-  updateServoAngle();
+  updateDamper();
 }
 
 bool Controller::isAutomaticControl()
@@ -96,8 +93,7 @@ void Controller::run()
 
   // Update fan and servo themselves. Scale the servo angle based on the fan speed.
   scaleServoAngle();
-  updateFanDuty();
-  updateServoAngle();
+  updateDamper();
 }
 
 void Controller::scaleServoAngle()
@@ -201,14 +197,13 @@ void Controller::processSetpointDesiredState(JsonObject desired)
     {
       fanDuty = (uint16_t)desired["fanDuty"];
       Log.notice("Controller fanDuty manually set to %d", fanDuty);
-      updateFanDuty();
     }
     if (desired.containsKey("servoAngle") && (uint8_t)desired["servoAngle"] != servoAngle)
     {
       servoAngle = (uint8_t)desired["servoAngle"];
       Log.notice("Controller servoAngle manually set to %d", servoAngle);
-      updateServoAngle();
     }
+    updateDamper();
   }
 
   // Publish the current state
@@ -258,16 +253,10 @@ void Controller::updateSetpointShadow()
   AwsIot::publishToShadow("setpoint", "update", output);
 }
 
-void Controller::updateFanDuty()
+void Controller::updateDamper()
 {
-  double duty = ((double)fanDuty / (double)100) * (double)255;
-  duty = duty > 255 ? 255 : duty;
-  fan.write(duty);
-}
-
-void Controller::updateServoAngle()
-{
-  servo.write(servoAngle);
+  damper::updateFanDuty(fanDuty);
+  damper::updateServoAngle(servoAngle);
 }
 
 void Controller::updatePidShadow()
