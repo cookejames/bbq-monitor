@@ -11,14 +11,31 @@ static MQTTClient client = MQTTClient(10000);
 static MqttMessageHandler messageHandler = [](String &topic, String &payload) { return; };
 static unsigned long startTime = 0;
 
+static MqttMessage mqttMessages[128];
+static etk::RingBuffer<MqttMessage, true> iotBuffer(mqttMessages, 128);
+
+void AwsIot::buffer(const char *topic, const char *message)
+{
+  // Allocate memory for the message and topic
+  char *_topic = new char[strlen(topic) + 1];
+  strcpy(_topic, topic);
+  char *_message = new char[strlen(message) + 1];
+  strcpy(_message, message);
+
+  // Add the message to the buffer
+  MqttMessage mqtt;
+  mqtt.message = _message;
+  mqtt.topic = _topic;
+  if (iotBuffer.is_full())
+  {
+    Log.warning("IoT buffer is full, old messages overwritten.");
+  }
+  iotBuffer.put(mqtt);
+}
+
 bool AwsIot::publish(const char *topic, const char *message)
 {
   Log.trace("IoT publishing to: %s - %s", topic, message);
-  if (!isConnected())
-  {
-    Log.warning("AWS IOT cannot publish - disconnected");
-    return false;
-  }
 
   bool success = client.publish(topic, message);
   if (!success)
@@ -105,7 +122,7 @@ void AwsIot::publishToShadow(const char *shadowName, const char *method, const c
 {
   char topic[200];
   sprintf(topic, AWS_SHADOW_TOPIC, THINGNAME, shadowName, method);
-  publish(topic, message);
+  buffer(topic, message);
 }
 
 void AwsIot::check()
@@ -113,9 +130,22 @@ void AwsIot::check()
   if (isConnected())
   {
     client.loop();
+    Log.verbose("%d items in AWS IOT publish buffer", iotBuffer.available());
+    while (iotBuffer.available())
+    {
+      MqttMessage message = iotBuffer.get();
+      bool success = publish(message.topic, message.message);
+      if (!success)
+      {
+        Log.error("Publishing message failed");
+      }
+      delete[] message.message;
+      delete[] message.topic;
+    }
   }
   else
   {
+
     if (millis() > startTime + waitTime)
     {
       Log.warning("AwsIot disconnected. Reconnecting.");

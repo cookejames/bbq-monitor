@@ -110,7 +110,10 @@ void loop()
 
   iBBQ::check();
   wifi.check();
-  AwsIot::check();
+  if (wifi.isConnected())
+  {
+    AwsIot::check();
+  }
   controller.run();
   delay(100);
 }

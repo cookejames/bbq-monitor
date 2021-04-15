@@ -3,13 +3,19 @@
 #include <Arduino.h>
 #include <WiFiClientSecure.h>
 #include <MQTTClient.h>
+#include <ring_buffer.h>
 
 using MqttMessageHandler = void (*)(String &, String &);
+
+struct MqttMessage
+{
+  const char *topic;
+  const char *message;
+};
 
 class AwsIot
 {
 public:
-  AwsIot();
   static void setMessageHander(MqttMessageHandler);
   static bool connect();
   static void check();
@@ -17,6 +23,7 @@ public:
   static void publishToShadow(const char *, const char *, const char *);
 
 private:
+  static void buffer(const char *, const char *);
   static bool publish(const char *, const char *);
   static void subscribe();
   static void subscribeToShadow(const char *, const char *);

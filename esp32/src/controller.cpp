@@ -20,7 +20,6 @@ Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 6, Ki =
   {
     pid.SetMode(MANUAL);
   }
-  updatePidShadow();
 
   servo.attach(SERVO_PIN, 1100, 2200);
   fan.attachPin(FAN_PWM_PIN, FAN_FREQUENCY, FAN_RESOLUTION);
