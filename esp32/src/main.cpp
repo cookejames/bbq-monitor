@@ -62,7 +62,7 @@ void setup()
 
   //Setup the status pin
   pinMode(STATUS_PIN, OUTPUT);
-  status(false);
+  status(STATUS_BAD);
 
   // Connect WiFi
   wifi.connect();
@@ -71,9 +71,9 @@ void setup()
   iBBQ::connect(temperatureReceivedCallback);
 
   // Connect to MQTT
+  AwsIot::setMessageHander(mqttMessageHandler);
   if (wifi.isConnected())
   {
-    AwsIot::setMessageHander(mqttMessageHandler);
     AwsIot::connect();
     AwsIot::publishToShadow("setpoint", "get", "");
   }
