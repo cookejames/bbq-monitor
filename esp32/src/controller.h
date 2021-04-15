@@ -2,8 +2,20 @@
 #define controller_h
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <movingAvg.h>
 #include <PID_v1.h>
 #include <config.h>
+
+struct Setpoint
+{
+  int16_t value;
+  uint8_t sensor;
+  uint8_t fanDuty;
+  int16_t fanSpeed;
+  uint8_t servoOpening;
+  bool startupMode;
+  bool lidOpenMode;
+};
 
 class Controller
 {
@@ -15,19 +27,27 @@ public:
   void processPidDesiredState(JsonObject);
   void setProbe(uint8_t);
   uint8_t getFanDuty();
-  uint8_t getServoAngle();
+  uint8_t getServoOpening();
   uint16_t getMonitoredTemperature();
+  uint16_t getMonitoredTemperatureAverage();
   void run();
 
 private:
   PID pid;
+  movingAvg temperatureAverage;
   uint8_t probe = 0;
   int16_t setpoint = 110;
-  uint8_t servoAngle = SERVO_OPEN;
+  uint8_t servoOpening = 100;
   uint8_t fanDuty = 100;
   uint8_t numProbes = 4;
   uint16_t temperature = 0;
   uint16_t temperatures[4] = {0, 0, 0, 0};
+  uint32_t lastAverageReadingTime = 0;
+  Setpoint lastSetpoint = {0,0,0,0,0,false, false};
+  bool lidOpenMode = false;
+  uint32_t lidOpenModeStartTime = 0;
+  // Don't enable lid open mode at startup
+  uint32_t lidOpenModeNextEligibleStart = LID_OPEN_MODE_DURATION;
   double pidInput = 0;
   double pidOutput = 0;
   double pidSetpoint = 0;
@@ -35,11 +55,11 @@ private:
   double Ki;
   double Kd;
   bool isStartupMode();
+  bool shouldLidOpenMode();
   void updateTemperatureShadow();
   void updateTemperatureShadow(bool *);
   void updateSetpointShadow();
   void updatePidShadow();
-  void scaleServoAngle();
   void updateDamper();
   bool isAutomaticControl();
 };

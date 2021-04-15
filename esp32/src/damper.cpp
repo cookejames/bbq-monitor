@@ -59,8 +59,16 @@ namespace damper
     fan.write(duty);
   }
 
-  void updateServoAngle(uint8_t servoAngle)
+    uint16_t servoPercentToAngle(uint8_t percent)
   {
-    servo.write(servoAngle);
+    uint16_t range = SERVO_OPEN - SERVO_CLOSED;
+    // Open fully once we get close
+    return (uint16_t)((double)percent / (double)100 * (double)range);
+  }
+
+  void updateServoPercent(uint8_t percent)
+  {
+    uint16_t angle = servoPercentToAngle(percent);
+    servo.write(angle);
   }
 }

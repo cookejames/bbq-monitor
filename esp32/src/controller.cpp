@@ -5,8 +5,10 @@
 #include <damper.h>
 
 #define SETPOINT_MANUAL_OVERRIDE -1
+#define TIME_BETWEEN_AVERAGE_READINGS 10000
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 3, Ki = 0.005, Kd = 6, P_ON_M, REVERSE)
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.3, Kd = 3, P_ON_E, REVERSE),
+                           temperatureAverage(30)
 {
 }
 
@@ -23,6 +25,7 @@ void Controller::setup()
     pid.SetMode(MANUAL);
   }
 
+  temperatureAverage.begin();
   damper::setup();
   updateDamper();
 }
@@ -47,10 +50,37 @@ void Controller::run()
     return;
   }
 
+  bool shouldLidOpen = shouldLidOpenMode();
+  if (shouldLidOpen && lidOpenMode)
+  {
+    // Lid open mode should be and is enabled
+    return;
+  }
+  else if (shouldLidOpen && !lidOpenMode)
+  {
+    // Lid open mode should be enabled but isn't
+    Log.notice("Enabling lid open mode until %d. Temperature %d is %Fpc below the temperature average of %F.",
+               millis() + LID_OPEN_MODE_DURATION, temperature, 1 - LID_OPEN_MODE_THRESHOLD, temperatureAverage.getAvg());
+    lidOpenModeStartTime = millis();
+    lidOpenMode = true;
+    pid.SetMode(MANUAL);
+    fanDuty = 0;
+    servoOpening = 50;
+    updateSetpointShadow();
+  }
+  else if (!shouldLidOpen && lidOpenMode)
+  {
+    // Lid open mode should be disabled but is enabled
+    lidOpenMode = false;
+    lidOpenModeNextEligibleStart = millis() + LID_OPEN_MODE_DURATION;
+    Log.notice("Lid open mode duration has now passed - disabling until %d", lidOpenModeNextEligibleStart);
+    pid.SetMode(AUTOMATIC);
+    updateSetpointShadow();
+  }
   // During startup we want to disable PID control, this allows us to
   // tune PID just for stabilising the temperature without worrying
   // about the temperature when we are trying to start the BBQ
-  if (isStartupMode())
+  else if (isStartupMode())
   {
     if (pid.GetMode() == AUTOMATIC)
     {
@@ -60,6 +90,7 @@ void Controller::run()
     if (fanDuty != 100)
     {
       fanDuty = 100;
+      servoOpening = 100;
       updateSetpointShadow();
     }
   }
@@ -83,24 +114,17 @@ void Controller::run()
 
     // Update outputs
     fanDuty = pidOutput;
+    servoOpening = fanDuty > 90 ? 100 : fanDuty;
 
     if ((int)oldOutput != (int)pidOutput)
     {
-      Log.notice("Temperature is %dC, setpoint is %dC, controller output changed to: Fan duty %dpc, Fan speed %drpm, Servo angle %ddeg", temperature, setpoint, fanDuty, damper::getRPM(), servoAngle);
+      Log.notice("Temperature is %dC, setpoint is %dC, controller output changed to: Fan duty %dpc, Fan speed %drpm, Servo opening %dpc",
+                 temperature, setpoint, fanDuty, damper::getRPM(), servoOpening);
       updateSetpointShadow();
     }
   }
 
-  // Update fan and servo themselves. Scale the servo angle based on the fan speed.
-  scaleServoAngle();
   updateDamper();
-}
-
-void Controller::scaleServoAngle()
-{
-  uint16_t range = SERVO_OPEN - SERVO_CLOSED;
-  // Open fully once we get close
-  servoAngle = fanDuty > 90 ? SERVO_OPEN : (double)fanDuty / (double)100 * (double)range;
 }
 
 void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _numProbes)
@@ -127,6 +151,11 @@ void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _num
     if (i == probe)
     {
       temperature = _temperatures[i];
+      if (temperatureAverage.getCount() == 0 || millis() > lastAverageReadingTime + TIME_BETWEEN_AVERAGE_READINGS)
+      {
+        temperatureAverage.reading(temperature);
+        lastAverageReadingTime = millis();
+      }
     }
   }
   if (changed)
@@ -198,10 +227,10 @@ void Controller::processSetpointDesiredState(JsonObject desired)
       fanDuty = (uint16_t)desired["fanDuty"];
       Log.notice("Controller fanDuty manually set to %d", fanDuty);
     }
-    if (desired.containsKey("servoAngle") && (uint8_t)desired["servoAngle"] != servoAngle)
+    if (desired.containsKey("servoOpening") && (uint8_t)desired["servoOpening"] != servoOpening)
     {
-      servoAngle = (uint8_t)desired["servoAngle"];
-      Log.notice("Controller servoAngle manually set to %d", servoAngle);
+      servoOpening = (uint8_t)desired["servoOpening"];
+      Log.notice("Controller servoOpening manually set to %d", servoOpening);
     }
     updateDamper();
   }
@@ -241,12 +270,46 @@ void Controller::updateSetpointShadow()
   StaticJsonDocument<capacity> doc;
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
-  reported["value"] = setpoint;
-  reported["sensor"] = probe;
-  reported["fanDuty"] = fanDuty;
-  reported["fanSpeed"] = damper::getRPM();
-  reported["servoAngle"] = servoAngle;
-  reported["startupMode"] = isStartupMode();
+
+  // Keep track of the last reported values so that we only send results that have changed.
+  if (lastSetpoint.value != setpoint)
+  {
+    reported["value"] = setpoint;
+    lastSetpoint.value = setpoint;
+  }
+  if (lastSetpoint.sensor != probe)
+  {
+    reported["sensor"] = probe;
+    lastSetpoint.sensor = probe;
+  }
+  if (lastSetpoint.fanDuty != fanDuty)
+  {
+    reported["fanDuty"] = fanDuty;
+    lastSetpoint.fanDuty = fanDuty;
+  }
+  uint16_t rpm = damper::getRPM();
+  if (lastSetpoint.fanSpeed != rpm)
+  {
+    reported["fanSpeed"] = rpm;
+    lastSetpoint.fanSpeed = rpm;
+  }
+  if (lastSetpoint.servoOpening != servoOpening)
+  {
+    reported["servoOpening"] = servoOpening;
+    lastSetpoint.servoOpening = servoOpening;
+  }
+  bool startupMode = isStartupMode();
+  if (lastSetpoint.startupMode != startupMode)
+  {
+    reported["startupMode"] = startupMode;
+    lastSetpoint.startupMode = startupMode;
+  }
+
+  if (lastSetpoint.lidOpenMode != lidOpenMode)
+  {
+    reported["lidOpenMode"] = lidOpenMode;
+    lastSetpoint.lidOpenMode = lidOpenMode;
+  }
 
   char output[128];
   serializeJson(doc, output);
@@ -256,7 +319,7 @@ void Controller::updateSetpointShadow()
 void Controller::updateDamper()
 {
   damper::updateFanDuty(fanDuty);
-  damper::updateServoAngle(servoAngle);
+  damper::updateServoPercent(servoOpening);
 }
 
 void Controller::updatePidShadow()
@@ -278,7 +341,44 @@ void Controller::updatePidShadow()
 bool Controller::isStartupMode()
 {
   // TODO CHANGE DIRECTION
-  return STARTUP_MODE_ENABLED && temperature > STARTUP_MODE_PERCENTAGE * (double)setpoint;
+  return STARTUP_MODE_ENABLED && !lidOpenMode && temperature > STARTUP_MODE_PERCENTAGE * (double)setpoint;
+}
+
+bool Controller::shouldLidOpenMode()
+{
+  // We need readings
+  if (temperatureAverage.getCount() == 0)
+  {
+    return false;
+  }
+
+  uint32_t currentTime = millis();
+
+  // Too soon to enable lid open mode again
+  if (currentTime < lidOpenModeNextEligibleStart)
+  {
+    return false;
+  }
+
+  // If we are in the mode and less than the duration return true
+  if (currentTime < lidOpenModeStartTime + LID_OPEN_MODE_DURATION)
+  {
+    return true;
+  }
+
+  // If we have passed the lid open mode duration threshold reset.
+  if (currentTime > lidOpenModeStartTime + LID_OPEN_MODE_DURATION)
+  {
+    return false;
+  }
+
+  // Temperature has dropped, lid open mode should be enabled
+  if (temperature < LID_OPEN_MODE_THRESHOLD * temperatureAverage.getAvg())
+  {
+    return true;
+  }
+
+  return false;
 }
 
 uint8_t Controller::getFanDuty()
@@ -286,12 +386,21 @@ uint8_t Controller::getFanDuty()
   return fanDuty;
 }
 
-uint8_t Controller::getServoAngle()
+uint8_t Controller::getServoOpening()
 {
-  return servoAngle;
+  return servoOpening;
 }
 
 uint16_t Controller::getMonitoredTemperature()
 {
   return temperature;
+}
+
+uint16_t Controller::getMonitoredTemperatureAverage()
+{
+  if (temperatureAverage.getCount() == 0)
+  {
+    return 0;
+  }
+  return temperatureAverage.getAvg();
 }

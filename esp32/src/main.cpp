@@ -107,8 +107,10 @@ void loop()
 
   if (millis() > lastReport + 30000)
   {
-    Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d", ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
-    Log.trace("Monitored temperature is %dC, fan speed is %drpm, duty %dpc and servo angle is %ddeg", controller.getMonitoredTemperature(), damper::getRPM(), controller.getFanDuty(), controller.getServoAngle());
+    Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d",
+              ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+    Log.trace("Monitored temperature is %dC, rolling average is %dC, fan speed is %drpm, duty %dpc and servo opening is %dpc",
+              controller.getMonitoredTemperature(), controller.getMonitoredTemperatureAverage(), damper::getRPM(), controller.getFanDuty(), controller.getServoOpening());
     lastReport = millis();
   }
 
