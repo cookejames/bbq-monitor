@@ -2,13 +2,14 @@
 #include <controller.h>
 #include <ibbq.h>
 #include <awsiot.h>
+#include <damper.h>
 
 #define SETPOINT_MANUAL_OVERRIDE -1
 #define FAN_FREQUENCY 25000
 #define FAN_CHANNEL 0
 #define FAN_RESOLUTION 8
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 6, Ki = 0.01, Kd = 3, P_ON_M, REVERSE)
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 3, Ki = 0.01, Kd = 6, P_ON_M, REVERSE)
 {
   pid.SetOutputLimits(0, 100);
   pid.SetSampleTime(200);
@@ -23,8 +24,9 @@ Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 6, Ki =
 
   servo.attach(SERVO_PIN, 1100, 2200);
   fan.attachPin(FAN_PWM_PIN, FAN_FREQUENCY, FAN_RESOLUTION);
+  damper::setup();
 
-  updateFanSpeed();
+  updateFanDuty();
   updateServoAngle();
 }
 
@@ -35,6 +37,8 @@ bool Controller::isAutomaticControl()
 
 void Controller::run()
 {
+  damper::check();
+
   if (!isAutomaticControl())
   {
 
@@ -46,7 +50,7 @@ void Controller::run()
     return;
   }
 
-  // During startup we want to disable PID control, this allows us to 
+  // During startup we want to disable PID control, this allows us to
   // tune PID just for stabilising the temperature without worrying
   // about the temperature when we are trying to start the BBQ
   if (isStartupMode())
@@ -56,9 +60,9 @@ void Controller::run()
       Log.notice("Startup mode enabled, controller PID set to manual");
       pid.SetMode(MANUAL);
     }
-    if (fanSpeed != 100)
+    if (fanDuty != 100)
     {
-      fanSpeed = 100;
+      fanDuty = 100;
       updateSetpointShadow();
     }
   }
@@ -81,18 +85,18 @@ void Controller::run()
     pid.Compute();
 
     // Update outputs
-    fanSpeed = pidOutput;
+    fanDuty = pidOutput;
 
     if ((int)oldOutput != (int)pidOutput)
     {
-      Log.notice("Temperature is %dC, setpoint is %dC, controller output changed to: Fan %dpc Servo %ddeg", temperature, setpoint, fanSpeed, servoAngle);
+      Log.notice("Temperature is %dC, setpoint is %dC, controller output changed to: Fan duty %dpc, Fan speed %drpm, Servo angle %ddeg", temperature, setpoint, fanDuty, damper::getRPM(), servoAngle);
       updateSetpointShadow();
     }
   }
 
   // Update fan and servo themselves. Scale the servo angle based on the fan speed.
   scaleServoAngle();
-  updateFanSpeed();
+  updateFanDuty();
   updateServoAngle();
 }
 
@@ -100,7 +104,7 @@ void Controller::scaleServoAngle()
 {
   uint16_t range = SERVO_OPEN - SERVO_CLOSED;
   // Open fully once we get close
-  servoAngle = fanSpeed > 90 ? SERVO_OPEN : (double)fanSpeed / (double)100 * (double)range;
+  servoAngle = fanDuty > 90 ? SERVO_OPEN : (double)fanDuty / (double)100 * (double)range;
 }
 
 void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _numProbes)
@@ -193,11 +197,11 @@ void Controller::processSetpointDesiredState(JsonObject desired)
 
   if (!isAutomaticControl())
   {
-    if (desired.containsKey("fanSpeed") && (uint16_t)desired["fanSpeed"] != fanSpeed)
+    if (desired.containsKey("fanDuty") && (uint16_t)desired["fanDuty"] != fanDuty)
     {
-      fanSpeed = (uint16_t)desired["fanSpeed"];
-      Log.notice("Controller fanSpeed manually set to %d", fanSpeed);
-      updateFanSpeed();
+      fanDuty = (uint16_t)desired["fanDuty"];
+      Log.notice("Controller fanDuty manually set to %d", fanDuty);
+      updateFanDuty();
     }
     if (desired.containsKey("servoAngle") && (uint8_t)desired["servoAngle"] != servoAngle)
     {
@@ -244,7 +248,8 @@ void Controller::updateSetpointShadow()
   JsonObject reported = state.createNestedObject("reported");
   reported["value"] = setpoint;
   reported["sensor"] = probe;
-  reported["fanSpeed"] = fanSpeed;
+  reported["fanDuty"] = fanDuty;
+  reported["fanSpeed"] = damper::getRPM();
   reported["servoAngle"] = servoAngle;
   reported["startupMode"] = isStartupMode();
 
@@ -253,9 +258,9 @@ void Controller::updateSetpointShadow()
   AwsIot::publishToShadow("setpoint", "update", output);
 }
 
-void Controller::updateFanSpeed()
+void Controller::updateFanDuty()
 {
-  double duty = ((double)fanSpeed / (double)100) * (double)255;
+  double duty = ((double)fanDuty / (double)100) * (double)255;
   duty = duty > 255 ? 255 : duty;
   fan.write(duty);
 }
@@ -285,4 +290,19 @@ bool Controller::isStartupMode()
 {
   // TODO CHANGE DIRECTION
   return STARTUP_MODE_ENABLED && temperature > STARTUP_MODE_PERCENTAGE * (double)setpoint;
+}
+
+uint8_t Controller::getFanDuty()
+{
+  return fanDuty;
+}
+
+uint8_t Controller::getServoAngle()
+{
+  return servoAngle;
+}
+
+uint16_t Controller::getMonitoredTemperature()
+{
+  return temperature;
 }

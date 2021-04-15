@@ -6,6 +6,7 @@
 #include <awsiot.h>
 #include <controller.h>
 #include <config.h>
+#include <damper.h>
 
 #define STATUS_OK true
 #define STATUS_BAD false
@@ -83,7 +84,7 @@ void setup()
   }
 }
 
-long lastMemoryReport = 0;
+long lastReport = 0;
 void loop()
 {
   // Set the status LED
@@ -102,10 +103,11 @@ void loop()
     }
   }
 
-  if (millis() > lastMemoryReport + 30000)
+  if (millis() > lastReport + 30000)
   {
     Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d", ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
-    lastMemoryReport = millis();
+    Log.trace("Monitored temperature is %dC, fan speed is %drpm, duty %dpc and servo angle is %ddeg", controller.getMonitoredTemperature(), damper::getRPM(), controller.getFanDuty(), controller.getServoAngle());
+    lastReport = millis();
   }
 
   iBBQ::check();

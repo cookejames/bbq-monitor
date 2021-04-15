@@ -14,6 +14,9 @@ public:
   void processSetpointDesiredState(JsonObject);
   void processPidDesiredState(JsonObject);
   void setProbe(uint8_t);
+  uint8_t getFanDuty();
+  uint8_t getServoAngle();
+  uint16_t getMonitoredTemperature();
   void run();
 
 private:
@@ -23,7 +26,7 @@ private:
   uint8_t probe = 0;
   int16_t setpoint = 110;
   uint8_t servoAngle = SERVO_OPEN;
-  uint8_t fanSpeed = 100;
+  uint8_t fanDuty = 100;
   uint8_t numProbes = 4;
   uint16_t temperature = 0;
   uint16_t temperatures[4] = {0, 0, 0, 0};
@@ -39,7 +42,7 @@ private:
   void updateSetpointShadow();
   void updatePidShadow();
   void scaleServoAngle();
-  void updateFanSpeed();
+  void updateFanDuty();
   void updateServoAngle();
   bool isAutomaticControl();
 };
