@@ -36,7 +36,7 @@ private:
   PID pid;
   movingAvg temperatureAverage;
   uint8_t probe = 0;
-  int16_t setpoint = 110;
+  int16_t setpoint = 100;
   uint8_t servoOpening = 100;
   uint8_t fanDuty = 100;
   uint8_t numProbes = 4;

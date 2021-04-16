@@ -16,7 +16,7 @@
 #define FAN_RPM_PIN 13
 
 #define STARTUP_MODE_ENABLED true
-#define STARTUP_MODE_PERCENTAGE 0.75 // startup mode runs until this percentage of the setpoint
+#define STARTUP_MODE_PERCENTAGE 0.7 // startup mode runs until this percentage of the setpoint
 
 #define LID_OPEN_MODE_THRESHOLD 0.85         //activate lid open mode if the temperature drops 15%
 #define LID_OPEN_MODE_DURATION 5 * 60 * 1000 // 5 minutes

@@ -60,13 +60,13 @@ void Controller::run()
   else if (shouldLidOpen && !lidOpenMode)
   {
     // Lid open mode should be enabled but isn't
-    Log.notice("Enabling lid open mode until %d. Temperature %d is %Fpc below the temperature average of %F.",
-               millis() + LID_OPEN_MODE_DURATION, temperature, 1 - LID_OPEN_MODE_THRESHOLD, temperatureAverage.getAvg());
+    Log.notice("Enabling lid open mode until %d. Temperature %dC is more than %Fpc below the temperature average of %F.",
+               millis() + LID_OPEN_MODE_DURATION, temperature, ((1 - LID_OPEN_MODE_THRESHOLD) * 100), temperatureAverage.getAvg());
     lidOpenModeStartTime = millis();
     lidOpenMode = true;
     pid.SetMode(MANUAL);
     fanDuty = 0;
-    servoOpening = 50;
+    servoOpening = servoOpening < 50 ? servoOpening : 50;
     updateControlStateShadow();
   }
   else if (!shouldLidOpen && lidOpenMode)
@@ -369,7 +369,7 @@ bool Controller::shouldLidOpenMode()
   }
 
   // If we have passed the lid open mode duration threshold reset.
-  if (currentTime > lidOpenModeStartTime + LID_OPEN_MODE_DURATION)
+  if (lidOpenMode && currentTime > lidOpenModeStartTime + LID_OPEN_MODE_DURATION)
   {
     return false;
   }
