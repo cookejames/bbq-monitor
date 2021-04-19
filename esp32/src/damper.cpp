@@ -2,6 +2,7 @@
 #include <config.h>
 #include <ArduinoLog.h>
 #include <ESP32Servo.h>
+#include <movingAvg.h>
 
 namespace damper
 {
@@ -13,6 +14,7 @@ namespace damper
 
   static Servo servo;
   static ESP32PWM fan;
+  static movingAvg servoAverage(5);
 
   static volatile uint16_t interruptCounter = 0; //counter use to detect hall sensor in fan
   static uint64_t previousmills = 0;
@@ -59,16 +61,22 @@ namespace damper
     fan.write(duty);
   }
 
-    uint16_t servoPercentToAngle(uint8_t percent)
+  uint16_t servoPercentToAngle(uint8_t percent)
   {
     uint16_t range = SERVO_OPEN - SERVO_CLOSED;
     // Open fully once we get close
     return (uint16_t)((double)percent / (double)100 * (double)range);
   }
 
-  void updateServoPercent(uint8_t percent)
+  void updateServoPercent(uint8_t percent, bool averaged)
   {
     uint16_t angle = servoPercentToAngle(percent);
-    servo.write(angle);
+    servoAverage.reading(angle);
+    servo.write(averaged ? servoAverage.getAvg() : angle);
+  }
+
+  void updateServoPercent(uint8_t percent)
+  {
+    updateServoPercent(percent, true);
   }
 }
