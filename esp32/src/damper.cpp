@@ -31,6 +31,7 @@ namespace damper
     fan.attachPin(FAN_PWM_PIN, FAN_FREQUENCY, FAN_RESOLUTION);
     pinMode(FAN_RPM_PIN, INPUT);
     attachInterrupt(FAN_RPM_PIN, handleInterrupt, RISING);
+    servoAverage.begin();
   }
 
   uint16_t computeFanSpeed(uint16_t count, uint16_t elapsedTime)
