@@ -6,7 +6,7 @@
 
 #define SETPOINT_MANUAL_OVERRIDE -1
 #define TIME_BETWEEN_AVERAGE_READINGS 10000
-#define TIME_BETWEEN_SETPOINT_PUBLISH 5 * 60 * 100
+#define TIME_BETWEEN_CONTROLSTATE_PUBLISH 5 * 60 * 1000
 
 Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.15, Kd = 15, P_ON_E, DIRECT),
                            temperatureAverage(30)
@@ -38,6 +38,13 @@ bool Controller::isAutomaticControl()
 
 void Controller::run()
 {
+  if (millis() > lastControlStatePublishTime + TIME_BETWEEN_CONTROLSTATE_PUBLISH)
+  {
+    Log.trace("Publishing full control state update");
+    updateTemperatureShadow();
+    updateControlStateShadow(true);
+    lastControlStatePublishTime = millis();
+  }
   damper::check();
 
   if (!isAutomaticControl())
@@ -52,12 +59,12 @@ void Controller::run()
   }
 
   bool shouldLidOpen = shouldLidOpenMode();
-  if (shouldLidOpen && lidOpenMode)
+  if (LID_OPEN_MODE_ENABLED && shouldLidOpen && lidOpenMode)
   {
     // Lid open mode should be and is enabled
     return;
   }
-  else if (shouldLidOpen && !lidOpenMode)
+  else if (LID_OPEN_MODE_ENABLED && shouldLidOpen && !lidOpenMode)
   {
     // Lid open mode should be enabled but isn't
     Log.notice("Enabling lid open mode until %d. Temperature %dC is more than %Fpc below the temperature average of %F.",
@@ -69,7 +76,7 @@ void Controller::run()
     servoOpening = servoOpening < 50 ? servoOpening : 50;
     updateControlStateShadow();
   }
-  else if (!shouldLidOpen && lidOpenMode)
+  else if (LID_OPEN_MODE_ENABLED && !shouldLidOpen && lidOpenMode)
   {
     // Lid open mode should be disabled but is enabled
     lidOpenMode = false;
@@ -124,7 +131,6 @@ void Controller::run()
       updateControlStateShadow();
     }
   }
-
   updateDamper();
 }
 
@@ -264,7 +270,7 @@ void Controller::processPidDesiredState(JsonObject desired)
   updatePidShadow();
 }
 
-void Controller::updateControlStateShadow()
+void Controller::updateControlStateShadow(bool publishAll)
 {
   Log.notice("Controller publishing update of setpoint shadow");
   const int capacity = JSON_OBJECT_SIZE(20);
@@ -273,50 +279,55 @@ void Controller::updateControlStateShadow()
   JsonObject reported = state.createNestedObject("reported");
 
   // Keep track of the last reported values so that we only send results that have changed.
-  if (lastDeviceState.setpoint != setpoint || millis() > lastSetpointPublishTime + TIME_BETWEEN_SETPOINT_PUBLISH)
+  if (publishAll || lastDeviceState.setpoint != setpoint)
   {
     reported["setpoint"] = setpoint;
     lastDeviceState.setpoint = setpoint;
     // Periodically publish the setpoint for graphing purposes
-    lastSetpointPublishTime = millis();
+    lastControlStatePublishTime = millis();
   }
-  if (lastDeviceState.sensor != probe)
+  if (publishAll || lastDeviceState.sensor != probe)
   {
     reported["sensor"] = probe;
     lastDeviceState.sensor = probe;
   }
-  if (lastDeviceState.fanDuty != fanDuty)
+  if (publishAll || lastDeviceState.fanDuty != fanDuty)
   {
     reported["fanDuty"] = fanDuty;
     lastDeviceState.fanDuty = fanDuty;
   }
   uint16_t rpm = damper::getRPM();
-  if (lastDeviceState.fanSpeed != rpm)
+  if (publishAll || lastDeviceState.fanSpeed != rpm)
   {
     reported["fanSpeed"] = rpm;
     lastDeviceState.fanSpeed = rpm;
   }
-  if (lastDeviceState.servoOpening != servoOpening)
+  if (publishAll || lastDeviceState.servoOpening != servoOpening)
   {
     reported["servoOpening"] = servoOpening;
     lastDeviceState.servoOpening = servoOpening;
   }
   bool startupMode = isStartupMode();
-  if (lastDeviceState.startupMode != startupMode)
+  if (publishAll || lastDeviceState.startupMode != startupMode)
   {
     reported["startupMode"] = startupMode;
     lastDeviceState.startupMode = startupMode;
   }
 
-  if (lastDeviceState.lidOpenMode != lidOpenMode)
+  if (publishAll || lastDeviceState.lidOpenMode != lidOpenMode)
   {
     reported["lidOpenMode"] = lidOpenMode;
     lastDeviceState.lidOpenMode = lidOpenMode;
   }
 
-  char output[128];
+  char output[256];
   serializeJson(doc, output);
   AwsIot::publishToShadow("controlstate", "update", output);
+}
+
+void Controller::updateControlStateShadow()
+{
+  updateControlStateShadow(false);
 }
 
 void Controller::updateDamper()

@@ -43,7 +43,7 @@ private:
   uint16_t temperature = 0;
   uint16_t temperatures[4] = {0, 0, 0, 0};
   uint32_t lastAverageReadingTime = 0;
-  uint32_t lastSetpointPublishTime = 0;
+  uint32_t lastControlStatePublishTime = 0;
   ControlState lastDeviceState = {0,0,0,0,0,false, false};
   bool lidOpenMode = false;
   uint32_t lidOpenModeStartTime = 0;
@@ -60,6 +60,7 @@ private:
   void updateTemperatureShadow();
   void updateTemperatureShadow(bool *);
   void updateControlStateShadow();
+  void updateControlStateShadow(bool);
   void updatePidShadow();
   void updateDamper();
   bool isAutomaticControl();
