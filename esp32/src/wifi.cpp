@@ -79,7 +79,6 @@ void Wifi::enableOTA()
         else // U_SPIFFS
           type = "filesystem";
 
-        Serial.println("Start updating " + type);
         Log.notice("OTA: Starting update %s", type);
       })
       .onEnd([]() {
