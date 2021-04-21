@@ -66,7 +66,7 @@ namespace damper
   {
     uint16_t range = SERVO_OPEN - SERVO_CLOSED;
     // Open fully once we get close
-    return (uint16_t)((double)percent / (double)100 * (double)range);
+    return SERVO_CLOSED + (uint16_t)((double)percent / (double)100 * (double)range);
   }
 
   void updateServoPercent(uint8_t percent, bool averaged)

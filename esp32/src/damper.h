@@ -9,6 +9,7 @@ namespace damper
   uint16_t getRPM();
   void updateFanDuty(uint8_t);
   void updateServoPercent(uint8_t);
+  void updateServoPercent(uint8_t, bool);
 }
 
 #endif
