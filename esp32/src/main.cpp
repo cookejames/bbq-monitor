@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <ArduinoLog.h>
 #include <ArduinoJson.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include <ibbq.h>
 #include <wifi.h>
 #include <awsiot.h>
@@ -14,6 +16,9 @@
 
 Wifi wifi;
 Controller controller;
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 0, 60 * 60 * 1000); // update every 60 minutes
+
 long lastOkTime = 0;
 
 void status(bool ok)
@@ -58,7 +63,7 @@ void setup()
 {
   Serial.begin(115200);
   Log.begin(LOG_LEVEL, &Serial, true);
-  Log.setPrefix([](Print *_logOutput) {   char c[12];int m = sprintf(c, "%10lu ", millis());_logOutput->print(c); });
+  Log.setPrefix([](Print *_logOutput) {   char c[12];sprintf(c, "%s - ", timeClient.getFormattedTime().c_str());_logOutput->print(c); });
   Log.setSuffix([](Print *_logOutput) { _logOutput->print('\n'); });
 
   //Setup the status pin
@@ -69,6 +74,10 @@ void setup()
 
   // Connect WiFi
   wifi.connect();
+
+  // Setup NTP time
+  timeClient.begin();
+  timeClient.update();
 
   // Connect thermometer
   iBBQ::connect(temperatureReceivedCallback);
@@ -104,6 +113,8 @@ void loop()
       ESP.restart();
     }
   }
+
+  timeClient.update();
 
   if (millis() > lastReport + 30000)
   {
