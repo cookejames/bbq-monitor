@@ -13,19 +13,30 @@ bool Wifi::isConnected()
 bool Wifi::connect()
 {
   startTime = millis();
+  WiFi.mode(WIFI_OFF);
+  delay(100);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(THINGNAME);
+  WiFi.disconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Log.notice("Connecting to WiFi. SSID: %s", WIFI_SSID);
 
   while (WiFi.waitForConnectResult() != WL_CONNECTED && millis() < startTime + waitTime)
   {
-    delay(500);
+    delay(1000);
   }
 
   if (isConnected())
   {
+    WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+      Serial.print("WiFi lost connection. Reason: ");
+      Serial.println(info.disconnected.reason);
+      WiFi.persistent(false);
+      WiFi.disconnect(true, true);
+      ESP.restart();
+    },
+                 WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
     MDNS.begin(THINGNAME);
     enableOTA();
     Log.notice("WiFi Connected: %s - %s", WiFi.macAddress().c_str(), WiFi.localIP().toString().c_str());
@@ -54,7 +65,6 @@ bool Wifi::check()
   {
     Log.warning("WiFi disconnected, reconnecting!");
     startTime = millis();
-    WiFi.disconnect();
     bool connected = Wifi::connect();
     if (connected)
     {
