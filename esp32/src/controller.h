@@ -44,7 +44,7 @@ private:
   uint16_t temperatures[4] = {0, 0, 0, 0};
   uint32_t lastAverageReadingTime = 0;
   uint32_t lastControlStatePublishTime = 0;
-  ControlState lastDeviceState = {0,0,0,0,0,false, false};
+  ControlState lastDeviceState = {0, 0, 0, 0, 0, false, false};
   bool lidOpenMode = false;
   uint32_t lidOpenModeStartTime = 0;
   // Don't enable lid open mode at startup
@@ -63,6 +63,7 @@ private:
   void updateControlStateShadow(bool);
   void updatePidShadow();
   void updateDamper();
+  void updateDamper(bool);
   bool isAutomaticControl();
 };
 

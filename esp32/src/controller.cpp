@@ -8,7 +8,7 @@
 #define TIME_BETWEEN_AVERAGE_READINGS 10000
 #define TIME_BETWEEN_CONTROLSTATE_PUBLISH 5 * 60 * 1000
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.15, Kd = 15, P_ON_E, DIRECT),
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.15, Kd = 15, P_ON_M, PID_MODE),
                            temperatureAverage(30)
 {
 }
@@ -239,7 +239,7 @@ void Controller::processControlDesiredState(JsonObject desired)
       servoOpening = (uint8_t)desired["servoOpening"];
       Log.notice("Controller servoOpening manually set to %d", servoOpening);
     }
-    updateDamper();
+    updateDamper(false);
   }
 
   // Publish the current state
@@ -332,8 +332,13 @@ void Controller::updateControlStateShadow()
 
 void Controller::updateDamper()
 {
+  updateDamper(true);
+}
+
+void Controller::updateDamper(bool useAveragedValue)
+{
   damper::updateFanDuty(fanDuty);
-  damper::updateServoPercent(servoOpening);
+  damper::updateServoPercent(servoOpening, useAveragedValue);
 }
 
 void Controller::updatePidShadow()
@@ -354,7 +359,12 @@ void Controller::updatePidShadow()
 
 bool Controller::isStartupMode()
 {
-  return STARTUP_MODE_ENABLED && !lidOpenMode && temperature < STARTUP_MODE_PERCENTAGE * (double)setpoint;
+  bool isTemperatureOutOfRange = PID_MODE == DIRECT
+                                     ? temperature < STARTUP_MODE_PERCENTAGE * (double)setpoint
+                                     : temperature > STARTUP_MODE_PERCENTAGE * (double)setpoint;
+  return STARTUP_MODE_ENABLED &&
+         !lidOpenMode &&
+         isTemperatureOutOfRange;
 }
 
 bool Controller::shouldLidOpenMode()
