@@ -14,7 +14,7 @@ namespace damper
 
   static Servo servo;
   static ESP32PWM fan;
-  static movingAvg servoAverage(5);
+  static movingAvg servoAverage(10);
 
   static volatile uint16_t interruptCounter = 0; //counter use to detect hall sensor in fan
   static uint64_t previousmills = 0;
