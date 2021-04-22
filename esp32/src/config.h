@@ -3,8 +3,8 @@
 #include <ArduinoLog.h>
 #include <PID_v1.h>
 
-#define BOARD_DEVKIT
-// #define BOARD_TTGO_T5
+// #define BOARD_DEVKIT
+#define BOARD_TTGO_T5
 
 #define LOG_LEVEL LOG_LEVEL_TRACE
 
@@ -34,6 +34,6 @@
 #define LID_OPEN_MODE_THRESHOLD 0.85         //activate lid open mode if the temperature drops 15%
 #define LID_OPEN_MODE_DURATION 5 * 60 * 1000 // 5 minutes
 
-#define PID_MODE REVERSE
+#define PID_MODE DIRECT
 
 #endif

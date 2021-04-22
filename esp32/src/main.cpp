@@ -3,13 +3,14 @@
 #include <ArduinoJson.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include "soc/rtc_cntl_reg.h"
 #include <ibbq.h>
 #include <wifi.h>
 #include <awsiot.h>
 #include <controller.h>
 #include <config.h>
 #include <damper.h>
-#include "soc/rtc_cntl_reg.h"
+#include <display.h>
 
 #define STATUS_OK true
 #define STATUS_BAD false
@@ -19,6 +20,7 @@ Wifi wifi;
 Controller controller;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60 * 60 * 1000); // update every 60 minutes
+Display display;
 
 long lastOkTime = 0;
 
@@ -89,8 +91,8 @@ void setup()
   AwsIot::setMessageHander(mqttMessageHandler);
   if (wifi.isConnected())
   {
-    AwsIot::connect();
-    AwsIot::publishToShadow("controlstate", "get", "");
+    // AwsIot::connect();
+    // AwsIot::publishToShadow("controlstate", "get", "");
   }
   else
   {
@@ -102,6 +104,9 @@ long lastReport = 0;
 void loop()
 {
   // Set the status LED
+
+  display.setStatus(wifi.isConnected(), iBBQ::isConnected(), AwsIot::isConnected());
+
   if (wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected())
   {
     status(STATUS_OK);
@@ -113,7 +118,7 @@ void loop()
     if (millis() > lastOkTime + STATUS_PERIOD)
     {
       Log.fatal("Unable to connect for > %dms. Restarting.", STATUS_PERIOD);
-      ESP.restart();
+      // ESP.restart();
     }
   }
 
@@ -132,7 +137,7 @@ void loop()
   wifi.check();
   if (wifi.isConnected())
   {
-    AwsIot::check();
+    // AwsIot::check();
   }
   controller.run();
   delay(100);
