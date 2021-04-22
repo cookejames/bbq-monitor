@@ -8,6 +8,7 @@ public:
   bool isConnected();
   bool connect();
   bool check();
+  static void reset();
 
 private:
   unsigned long startTime;

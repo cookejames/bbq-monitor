@@ -32,9 +32,7 @@ bool Wifi::connect()
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
       Serial.print("WiFi lost connection. Reason: ");
       Serial.println(info.disconnected.reason);
-      WiFi.persistent(false);
-      WiFi.disconnect(true, true);
-      ESP.restart();
+      Wifi::reset();
     },
                  WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
     MDNS.begin(THINGNAME);
@@ -48,7 +46,7 @@ bool Wifi::connect()
     retryCount++;
     if (retryCount >= 5)
     {
-      ESP.restart();
+      reset();
     }
     return false;
   }
@@ -112,4 +110,16 @@ void Wifi::enableOTA()
       });
 
   ArduinoOTA.begin();
+}
+
+void Wifi::reset()
+{
+  Log.warning("WiFi reset invoked, disconnecting, turning WiFi off and restarting.");
+  WiFi.persistent(false);
+  WiFi.disconnect(true, true);
+  WiFi.mode(WIFI_OFF);
+  Log.warning("Waiting 15s for disconnect");
+  delay(15000);
+  Log.fatal("ESP restarting");
+  ESP.restart();
 }
