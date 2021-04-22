@@ -9,6 +9,7 @@
 #include <controller.h>
 #include <config.h>
 #include <damper.h>
+#include "soc/rtc_cntl_reg.h"
 
 #define STATUS_OK true
 #define STATUS_BAD false
@@ -17,7 +18,7 @@
 Wifi wifi;
 Controller controller;
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 0, 60 * 60 * 1000); // update every 60 minutes
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60 * 60 * 1000); // update every 60 minutes
 
 long lastOkTime = 0;
 
@@ -61,6 +62,8 @@ void mqttMessageHandler(String &topic, String &payload)
 
 void setup()
 {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Prevent brownouts by silencing them. You probably want to keep this.
+
   Serial.begin(115200);
   Log.begin(LOG_LEVEL, &Serial, true);
   Log.setPrefix([](Print *_logOutput) {   char c[12];sprintf(c, "%s - ", timeClient.getFormattedTime().c_str());_logOutput->print(c); });
