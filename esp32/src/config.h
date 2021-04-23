@@ -17,6 +17,8 @@
 #endif
 
 #ifdef BOARD_TTGO_T5
+#define LILYGO_T5_V213
+#define HAS_DISPLAY
 #define SERVO_PIN 22
 #define FAN_PWM_PIN 21
 #define FAN_RPM_PIN 13
@@ -35,5 +37,7 @@
 #define LID_OPEN_MODE_DURATION 5 * 60 * 1000 // 5 minutes
 
 #define PID_MODE DIRECT
+
+#define DISPLAY_MIN_TIME_BETWEEN_UPDATES 5 * 1000
 
 #endif

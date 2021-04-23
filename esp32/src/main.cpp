@@ -91,8 +91,8 @@ void setup()
   AwsIot::setMessageHander(mqttMessageHandler);
   if (wifi.isConnected())
   {
-    // AwsIot::connect();
-    // AwsIot::publishToShadow("controlstate", "get", "");
+    AwsIot::connect();
+    AwsIot::publishToShadow("controlstate", "get", "");
   }
   else
   {
@@ -104,9 +104,7 @@ long lastReport = 0;
 void loop()
 {
   // Set the status LED
-
   display.setStatus(wifi.isConnected(), iBBQ::isConnected(), AwsIot::isConnected());
-
   if (wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected())
   {
     status(STATUS_OK);
@@ -118,7 +116,7 @@ void loop()
     if (millis() > lastOkTime + STATUS_PERIOD)
     {
       Log.fatal("Unable to connect for > %dms. Restarting.", STATUS_PERIOD);
-      // ESP.restart();
+      ESP.restart();
     }
   }
 
@@ -137,8 +135,10 @@ void loop()
   wifi.check();
   if (wifi.isConnected())
   {
-    // AwsIot::check();
+    AwsIot::check();
   }
   controller.run();
+
+  display.check();
   delay(100);
 }
