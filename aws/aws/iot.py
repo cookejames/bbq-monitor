@@ -135,7 +135,7 @@ class IoTStack(cdk.Stack):
             ),
         )
 
-         timestream_device_battery_rule = CustomSdkTimestreamRule(
+        timestream_device_battery_rule = CustomSdkTimestreamRule(
             self,
             "bbq_device_battery",
             TimestreamRulePayload(
