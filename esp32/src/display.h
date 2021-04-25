@@ -11,23 +11,33 @@
 class Display
 {
 public:
-  Display();
-  void setStatus(bool, bool, bool);
-  void check();
+  static void init();
+  static void setStatus(bool, bool, bool);
+  static void setIpAddress(const char *);
+  static void setTemperature(uint16_t);
+  static void setSetpoint(int16_t);
+  static void check();
 
 private:
-  GxIO_Class io;
-  GxEPD_Class display;
-  U8G2_FOR_ADAFRUIT_GFX u8g2;
-  void drawGrid();
-  void writeLine(int, const GFXfont *);
-  void writeLine(int, const uint8_t *);
-  void writeLine(int);
-  bool hasUpdates = true;
-  unsigned long lastUpdateTime = 0;
-  bool wifiStatus;
-  bool bleStatus;
-  bool iotStatus;
+  static GxIO_Class io;
+  static GxEPD_Class display;
+  static U8G2_FOR_ADAFRUIT_GFX u8g2;
+  static void drawGrid();
+  static void drawBattery();
+  static void updateBatteryShadow(float, float);
+  static bool hasUpdates;
+  static bool hasTemperatureUpdate;
+  static unsigned long lastUpdateTime;
+  static unsigned long lastTemperatureUpdateTime;
+  static unsigned long lastBatteryUpdate;
+  static bool wifiStatus;
+  static bool bleStatus;
+  static bool iotStatus;
+  static uint16_t currentTemperature;
+  static const uint8_t *FONT_6_PT;
+  static const uint8_t *FONT_9_PT;
+  static const uint8_t *FONT_42_PT;
+  static const uint8_t *FONT_58_PT;
 };
 
 #endif

@@ -3,8 +3,8 @@
 #include <ibbq.h>
 #include <awsiot.h>
 #include <damper.h>
+#include <display.h>
 
-#define SETPOINT_MANUAL_OVERRIDE -1
 #define TIME_BETWEEN_AVERAGE_READINGS 10000
 #define TIME_BETWEEN_CONTROLSTATE_PUBLISH 5 * 60 * 1000
 
@@ -29,6 +29,7 @@ void Controller::setup()
   temperatureAverage.begin();
   damper::setup();
   updateDamper();
+  Display::setSetpoint(setpoint);
 }
 
 bool Controller::isAutomaticControl()
@@ -55,6 +56,10 @@ void Controller::run()
       Log.notice("Changing PID mode to manual");
       pid.SetMode(MANUAL);
     }
+    return;
+  }
+
+  if (!iBBQ::isConnected()) {
     return;
   }
 
@@ -163,6 +168,7 @@ void Controller::processTemperatureResult(uint16_t _temperatures[], uint8_t _num
         temperatureAverage.reading(temperature);
         lastAverageReadingTime = millis();
       }
+      Display::setTemperature(temperature);
     }
   }
   if (changed)
@@ -212,6 +218,7 @@ void Controller::processControlDesiredState(JsonObject desired)
   {
     setpoint = (int16_t)desired["setpoint"];
     Log.notice("Controller setpoint updated to %d", setpoint);
+    Display::setSetpoint(setpoint);
   }
 
   if (desired.containsKey("sensor") && (uint8_t)desired["sensor"] != probe)

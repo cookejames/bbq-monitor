@@ -4,6 +4,7 @@
 #include <ArduinoLog.h>
 #include <ESPmDNS.h>
 #include <ArduinoOTA.h>
+#include <display.h>
 
 bool Wifi::isConnected()
 {
@@ -15,6 +16,10 @@ bool Wifi::connect()
   startTime = millis();
   WiFi.mode(WIFI_OFF);
   delay(100);
+  WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+    Display::setIpAddress(WiFi.localIP().toString().c_str());
+  },
+               WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(THINGNAME);
   WiFi.disconnect(true);

@@ -1,31 +1,80 @@
 #include <ArduinoLog.h>
+#include <ArduinoJson.h>
 #include <display.h>
+#include <secrets.h>
+#include <awsiot.h>
 #include <U8g2_for_Adafruit_GFX.h>
+#include <controller.h>
 
 #define DISPLAY_WIDTH GxEPD_HEIGHT
 #define DISPLAY_HEIGHT GxEPD_WIDTH
 
-Display::Display() : io(SPI, EPD_CS, EPD_DC, EPD_RSET), display(io, EPD_RSET, EPD_BUSY)
+GxIO_Class Display::io(SPI, EPD_CS, EPD_DC, EPD_RSET);
+GxEPD_Class Display::display(io, EPD_RSET, EPD_BUSY);
+bool Display::hasUpdates = false;
+bool Display::hasTemperatureUpdate = false;
+bool Display::wifiStatus = false;
+bool Display::bleStatus = false;
+bool Display::iotStatus = false;
+unsigned long Display::lastUpdateTime = 0;
+unsigned long Display::lastTemperatureUpdateTime = 0;
+unsigned long Display::lastBatteryUpdate = 0;
+uint16_t Display::currentTemperature = 0;
+U8G2_FOR_ADAFRUIT_GFX Display::u8g2;
+const uint8_t *Display::FONT_6_PT = u8g2_font_profont10_mf;
+const uint8_t *Display::FONT_9_PT = u8g2_font_profont15_mf;
+const uint8_t *Display::FONT_42_PT = u8g2_font_logisoso42_tr;
+const uint8_t *Display::FONT_58_PT = u8g2_font_logisoso58_tr;
+
+void Display::init()
 {
   display.init();
   u8g2.begin(display);
-  u8g2.setForegroundColor(GxEPD_BLACK); // apply Adafruit GFX color
-  u8g2.setBackgroundColor(GxEPD_WHITE); // apply Adafruit GFX color
+  u8g2.setForegroundColor(GxEPD_BLACK);
+  u8g2.setBackgroundColor(GxEPD_WHITE);
+  u8g2.setFontMode(0);
 
-  // display.eraseDisplay();
-  display.fillScreen(GxEPD_WHITE);
+  display.eraseDisplay();
   display.setRotation(1);
   setStatus(false, false, false);
-
+  drawBattery();
+  hasUpdates = false;
   // drawGrid();
+  display.update();
 }
 
 void Display::check()
 {
+  if (millis() > lastBatteryUpdate + DISPLAY_MIN_TIME_BETWEEN_BATTERY_UPDATES)
+  {
+    lastBatteryUpdate = millis();
+    drawBattery();
+  }
+
+  if (!hasUpdates && !hasTemperatureUpdate)
+  {
+    return;
+  }
+
+  bool shouldUpdate = false;
   if (hasUpdates && millis() > (lastUpdateTime + DISPLAY_MIN_TIME_BETWEEN_UPDATES))
   {
     hasUpdates = false;
     lastUpdateTime = millis();
+    shouldUpdate = true;
+  }
+
+  // Only update the display if the temperature has changed and enough time has elapsed
+  // The temeprature changes frequently and the display blinking is annoying
+  if (hasTemperatureUpdate && millis() > (lastTemperatureUpdateTime + DISPLAY_MIN_TIME_BETWEEN_TEMPERATURE_UPDATES))
+  {
+    hasTemperatureUpdate = false;
+    lastTemperatureUpdateTime = millis();
+    shouldUpdate = true;
+  }
+
+  if (shouldUpdate)
+  {
     display.update();
   }
 }
@@ -61,18 +110,153 @@ void Display::setStatus(bool wifi, bool iot, bool ble)
   int16_t ICON_WIFI = 80;
   int16_t ICON_BT = 74;
 
-  display.drawFastHLine(0, ICON_SIZE_BIG + 2, DISPLAY_WIDTH, GxEPD_BLACK);
+  // Clear the area
+  display.fillRect(DISPLAY_WIDTH - (ICON_SIZE_BIG * 6), 0, ICON_SIZE_BIG * 6, ICON_SIZE_BIG, GxEPD_WHITE);
 
+  // Draw the icons
   u8g2.setFont(u8g2_font_open_iconic_weather_2x_t);
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 2), ICON_SIZE_BIG, ICON_CLOUD);
   u8g2.setFont(u8g2_font_open_iconic_embedded_2x_t);
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 4), ICON_SIZE_BIG, ICON_BT);
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 6), ICON_SIZE_BIG, ICON_WIFI);
 
+  // Draw the status ticks/crosses
   u8g2.setFont(u8g2_font_open_iconic_check_1x_t);
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 1), ICON_SIZE_SMALL + ICON_SIZE_SMALL / 2, iot ? ICON_TICK : ICON_CROSS);
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 3), ICON_SIZE_SMALL + ICON_SIZE_SMALL / 2, ble ? ICON_TICK : ICON_CROSS);
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 5), ICON_SIZE_SMALL + ICON_SIZE_SMALL / 2, wifi ? ICON_TICK : ICON_CROSS);
 
+  // Line underneath
+  display.drawFastHLine(0, ICON_SIZE_BIG + 2, DISPLAY_WIDTH, GxEPD_BLACK);
+
   hasUpdates = true;
+}
+
+void Display::setIpAddress(const char *ipAddress)
+{
+  u8g2.setFont(FONT_6_PT);
+  u8g2.setCursor(0, 8);
+  u8g2.print(THINGNAME);
+  u8g2.setCursor(0, 16);
+  u8g2.print(ipAddress);
+
+  hasUpdates = true;
+}
+
+void Display::setTemperature(uint16_t temperature)
+{
+  if (temperature == currentTemperature)
+  {
+    return;
+  }
+  currentTemperature = temperature;
+  u8g2.setFont(FONT_9_PT);
+  u8g2.setCursor(20, 35);
+  u8g2.print("temperature");
+  display.fillRect(10, 42, 120, 58, GxEPD_WHITE);
+  u8g2.setFont(FONT_58_PT);
+  u8g2.setCursor(10, 100);
+  u8g2.print(temperature);
+  display.updateWindow(10, 42, 120, 58, true);
+
+  hasTemperatureUpdate = true;
+}
+
+void Display::setSetpoint(int16_t temperature)
+{
+  int x = 130;
+  int y = 100;
+
+  u8g2.setFont(FONT_9_PT);
+  u8g2.setCursor(x + 20, y - 65);
+  u8g2.print("setpoint");
+
+  display.fillRect(x, y - 58, DISPLAY_WIDTH - x, 58, GxEPD_WHITE);
+  if (temperature == SETPOINT_MANUAL_OVERRIDE)
+  {
+    u8g2.setCursor(x + 20, y);
+    u8g2.setFont(FONT_58_PT);
+    u8g2.print("M");
+  }
+  else
+  {
+    u8g2.setCursor(x, y);
+    u8g2.setFont(u8g2_font_logisoso58_tr);
+    u8g2.print(temperature);
+  }
+
+  hasUpdates = true;
+}
+
+void Display::drawBattery()
+{
+  int x = DISPLAY_WIDTH - (16 * 8);
+  int y = 16;
+  float minLiPoV = 3.4;
+  float maxLiPoV = 4.2;
+  float percentage = 1.0;
+  // analog value = Vbat / 2
+  int voltageRaw = 0;
+  for (int i = 0; i < 10; i++)
+  {
+    voltageRaw += analogRead(35);
+  }
+  voltageRaw /= 10;
+  // voltage = divider * V_ref / Max_Analog_Value
+  float voltage = 2.205 * 3.27 * voltageRaw / 4096.0;
+  if (voltage > 1)
+  { // Only display if there is a valid reading
+    percentage = (voltage - minLiPoV) / (maxLiPoV - minLiPoV);
+    if (voltage >= maxLiPoV)
+      percentage = 1;
+    if (voltage <= minLiPoV)
+      percentage = 0;
+
+    Log.trace("Battery raw voltage: %FV, calculated voltage: %FV, percentage %F", voltageRaw, voltage, percentage);
+    int bodyHeight = 14;
+    int capHeight = 2;
+    int width = 7;
+    display.fillRect(x, y - bodyHeight - capHeight, width, bodyHeight + capHeight, GxEPD_WHITE);
+    // body
+    display.fillRect(x, y - bodyHeight, width, bodyHeight, GxEPD_BLACK);
+    // cap
+    display.fillRect(x + 1, y - bodyHeight - capHeight, width - 2, capHeight, GxEPD_BLACK);
+    // percent used
+    display.fillRect(x + 1, y - bodyHeight + 1, width - 2, ((double)(bodyHeight - 2) * (1 - percentage)), GxEPD_WHITE);
+
+    // Percentage text
+    u8g2.setFont(FONT_6_PT);
+    // Clear
+    display.fillRect(x + width + 2, 0, 8, 16, GxEPD_WHITE);
+    if (percentage == 1)
+    {
+      u8g2.setCursor(x + width + 2, y - 8);
+      u8g2.print((int)(percentage * 100));
+      u8g2.setCursor(x + width + 7, y);
+      u8g2.print("%");
+    }
+    else
+    {
+      u8g2.setCursor(x + width + 2, y - 4);
+      char buffer[3];
+      sprintf(buffer, "%d%%", (int)(percentage * 100));
+      u8g2.print(buffer);
+    }
+
+    updateBatteryShadow(voltage, percentage);
+    hasUpdates = true;
+  }
+}
+
+void Display::updateBatteryShadow(float voltage, float percentage)
+{
+  const int capacity = JSON_OBJECT_SIZE(20);
+  StaticJsonDocument<capacity> doc;
+  JsonObject state = doc.createNestedObject("state");
+  JsonObject reported = state.createNestedObject("reported");
+  reported["voltage"] = roundf(voltage * 100) / 100;
+  reported["percentage"] = roundf(percentage* 100) / 100;
+  char output[128];
+  serializeJson(doc, output);
+  AwsIot::publishToShadow("battery", "update", output);
 }

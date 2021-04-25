@@ -6,6 +6,8 @@
 #include <PID_v1.h>
 #include <config.h>
 
+#define SETPOINT_MANUAL_OVERRIDE -1
+
 struct ControlState
 {
   int16_t setpoint;

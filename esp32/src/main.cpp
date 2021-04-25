@@ -20,7 +20,6 @@ Wifi wifi;
 Controller controller;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60 * 60 * 1000); // update every 60 minutes
-Display display;
 
 long lastOkTime = 0;
 
@@ -70,6 +69,7 @@ void setup()
   Log.begin(LOG_LEVEL, &Serial, true);
   Log.setPrefix([](Print *_logOutput) {   char c[12];sprintf(c, "%s - ", timeClient.getFormattedTime().c_str());_logOutput->print(c); });
   Log.setSuffix([](Print *_logOutput) { _logOutput->print('\n'); });
+  Display::init();
 
   //Setup the status pin
   pinMode(STATUS_PIN, OUTPUT);
@@ -104,7 +104,7 @@ long lastReport = 0;
 void loop()
 {
   // Set the status LED
-  display.setStatus(wifi.isConnected(), iBBQ::isConnected(), AwsIot::isConnected());
+  Display::setStatus(wifi.isConnected(), AwsIot::isConnected(), iBBQ::isConnected());
   if (wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected())
   {
     status(STATUS_OK);
@@ -139,6 +139,6 @@ void loop()
   }
   controller.run();
 
-  display.check();
+  Display::check();
   delay(100);
 }
