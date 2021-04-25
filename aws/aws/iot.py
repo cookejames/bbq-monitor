@@ -134,3 +134,20 @@ class IoTStack(cdk.Stack):
                 ],
             ),
         )
+
+         timestream_device_battery_rule = CustomSdkTimestreamRule(
+            self,
+            "bbq_device_battery",
+            TimestreamRulePayload(
+                sql="SELECT state.reported.* FROM '$aws/things/+/shadow/name/battery/update/accepted'",
+                actions=[
+                    TimestreamAction(
+                        scope=self,
+                        construct_id="bbq_device_battery_action",
+                        database_name=database.name,
+                        table_name=device_table.table_name,
+                        dimensions=[TimestreamDimension("device", "${topic(3)}"), TimestreamDimension("metric", "battery")],
+                    )
+                ],
+            ),
+        )
