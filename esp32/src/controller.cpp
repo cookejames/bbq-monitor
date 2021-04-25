@@ -30,6 +30,7 @@ void Controller::setup()
   damper::setup();
   updateDamper();
   Display::setSetpoint(setpoint);
+  Display::setTunings(pid.GetKp(), pid.GetKi(), pid.GetKd());
 }
 
 bool Controller::isAutomaticControl()
@@ -59,7 +60,8 @@ void Controller::run()
     return;
   }
 
-  if (!iBBQ::isConnected()) {
+  if (!iBBQ::isConnected())
+  {
     return;
   }
 
@@ -272,6 +274,8 @@ void Controller::processPidDesiredState(JsonObject desired)
     pid.SetTunings(pid.GetKp(), pid.GetKi(), (double)desired["Kd"]);
     Log.notice("Controller pid Kd updated to %F", pid.GetKd());
   }
+
+  Display::setTunings(pid.GetKp(), pid.GetKi(), pid.GetKd());
 
   // Publish the current state
   updatePidShadow();

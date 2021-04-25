@@ -16,6 +16,7 @@ public:
   static void setIpAddress(const char *);
   static void setTemperature(uint16_t);
   static void setSetpoint(int16_t);
+  static void setTunings(double, double, double);
   static void check();
 
 private:

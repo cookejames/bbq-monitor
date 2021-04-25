@@ -255,8 +255,44 @@ void Display::updateBatteryShadow(float voltage, float percentage)
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
   reported["voltage"] = roundf(voltage * 100) / 100;
-  reported["percentage"] = roundf(percentage* 100) / 100;
+  reported["percentage"] = roundf(percentage * 100) / 100;
   char output[128];
   serializeJson(doc, output);
   AwsIot::publishToShadow("battery", "update", output);
 }
+
+void Display::setTunings(double Kp, double Ki, double Kd)
+{
+  display.drawFastHLine(0, DISPLAY_HEIGHT - 18, DISPLAY_WIDTH, GxEPD_BLACK);
+  u8g2.setFont(FONT_6_PT);
+  u8g2.setCursor(0, DISPLAY_HEIGHT - 8);
+  char buffer[DISPLAY_WIDTH];
+  sprintf(buffer, "Kp: %3.2f - Ki: %3.3f - Kd: %3.2f", Kp, Ki, Kd);
+  u8g2.print(buffer);
+
+  hasUpdates = true;
+}
+
+// void Display::setPidOutput(uint8_t output)
+// {
+//   int16_t SIZE = 16;
+//   int16_t ICON_FAN = 66;
+//   uint16_t x = DISPLAY_WIDTH - (SIZE * 2);
+//   uint16_t y = DISPLAY_HEIGHT;
+
+//   // Clear
+//   display.fillRect(x, y - SIZE, SIZE * 2, SIZE, GxEPD_WHITE);
+
+//   u8g2.setFont(u8g2_font_open_iconic_embedded_1x_t);
+//   u8g2.drawGlyph(x, y - 7, ICON_FAN);
+
+//   u8g2.setFont(FONT_6_PT);
+//   u8g2.setCursor(x + (SIZE / 2), y - 8);
+//   char buffer[3];
+//   sprintf(buffer, "%d%%", output);
+//   u8g2.print(buffer);
+
+//   Log.notice("UPDATING PID DISPLAY %d", output);
+//   display.drawRect(x, y - SIZE, SIZE * 2, SIZE, GxEPD_BLACK);
+//   display.updateWindow(x, y - SIZE, SIZE * 2, SIZE, true);
+// }
