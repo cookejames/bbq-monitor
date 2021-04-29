@@ -22,6 +22,9 @@
 #define FAN_RPM_PIN 13
 #endif
 
+#define FAN_MIN_PWM 15
+#define FAN_MAX_PWM 50
+
 #define SERVO_OPEN 180 // The angle the servo is open at
 #define SERVO_CLOSED 3 // The angle the servo is closed at
 #define SERVO_MIN_PULSE_WIDTH 1100

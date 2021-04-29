@@ -19,6 +19,8 @@ namespace damper
   static volatile uint16_t interruptCounter = 0; //counter use to detect hall sensor in fan
   static uint64_t previousmills = 0;
   static uint16_t lastRpm = 0;
+  static uint8_t fanDuty = 0;
+  static uint8_t servoOpening = 0;
 
   void ICACHE_RAM_ATTR handleInterrupt()
   {
@@ -55,11 +57,22 @@ namespace damper
     return lastRpm;
   }
 
+  void updateFanDuty(uint8_t duty, bool scale)
+  {
+    if (scale)
+    {
+      uint16_t range = FAN_MAX_PWM - FAN_MIN_PWM;
+      duty = FAN_MIN_PWM + (uint16_t)((double)duty / (double)100 * (double)range);
+    }
+    fanDuty = duty;
+    double scaledDuty = ((double)duty / (double)100) * (double)255;
+    scaledDuty = scaledDuty > 255 ? 255 : scaledDuty;
+    fan.write(scaledDuty);
+  }
+
   void updateFanDuty(uint8_t fanDuty)
   {
-    double duty = ((double)fanDuty / (double)100) * (double)255;
-    duty = duty > 255 ? 255 : duty;
-    fan.write(duty);
+    return updateFanDuty(fanDuty, true);
   }
 
   uint16_t servoPercentToAngle(uint8_t percent)
@@ -71,13 +84,25 @@ namespace damper
 
   void updateServoPercent(uint8_t percent, bool averaged)
   {
-    uint16_t angle = servoPercentToAngle(percent);
-    servoAverage.reading(angle);
-    servo.write(averaged ? servoAverage.getAvg() : angle);
+    servoAverage.reading(percent);
+    uint16_t opening = averaged ? servoAverage.getAvg() : percent;
+    uint16_t angle = servoPercentToAngle(opening);
+    servo.write(angle);
+    servoOpening = opening;
   }
 
   void updateServoPercent(uint8_t percent)
   {
     updateServoPercent(percent, true);
+  }
+
+  uint8_t getFanDuty()
+  {
+    return fanDuty;
+  }
+
+  uint8_t getServoPercent()
+  {
+    return servoOpening;
   }
 }

@@ -63,7 +63,6 @@ private:
   void updateControlStateShadow(bool);
   void updatePidShadow();
   void updateDamper();
-  void updateDamper(bool);
   bool isAutomaticControl();
 };
 
