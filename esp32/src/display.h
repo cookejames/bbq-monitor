@@ -17,6 +17,7 @@ public:
   static void setTemperature(uint16_t);
   static void setSetpoint(int16_t);
   static void setTunings(double, double, double);
+  static void setPidOutput(uint8_t);
   static void check();
 
 private:
@@ -25,6 +26,7 @@ private:
   static U8G2_FOR_ADAFRUIT_GFX u8g2;
   static void drawGrid();
   static void drawBattery();
+  static void drawLabels();
   static void updateBatteryShadow(float, float);
   static bool hasUpdates;
   static bool hasTemperatureUpdate;

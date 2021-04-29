@@ -136,6 +136,7 @@ void Controller::run()
       Log.notice("Temperature is %dC, setpoint is %dC, controller output changed to: Fan duty %dpc, Fan speed %drpm, Servo opening %dpc",
                  temperature, setpoint, fanDuty, damper::getRPM(), servoOpening);
       updateControlStateShadow();
+      Display::setPidOutput(pidOutput);
     }
   }
   updateDamper();

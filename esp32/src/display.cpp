@@ -38,6 +38,7 @@ void Display::init()
   display.setRotation(1);
   setStatus(false, false, false);
   drawBattery();
+  drawLabels();
   hasUpdates = false;
   // drawGrid();
   display.update();
@@ -126,9 +127,6 @@ void Display::setStatus(bool wifi, bool iot, bool ble)
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 3), ICON_SIZE_SMALL + ICON_SIZE_SMALL / 2, ble ? ICON_TICK : ICON_CROSS);
   u8g2.drawGlyph(DISPLAY_WIDTH - (ICON_SIZE_BIG * 5), ICON_SIZE_SMALL + ICON_SIZE_SMALL / 2, wifi ? ICON_TICK : ICON_CROSS);
 
-  // Line underneath
-  display.drawFastHLine(0, ICON_SIZE_BIG + 2, DISPLAY_WIDTH, GxEPD_BLACK);
-
   hasUpdates = true;
 }
 
@@ -150,9 +148,6 @@ void Display::setTemperature(uint16_t temperature)
     return;
   }
   currentTemperature = temperature;
-  u8g2.setFont(FONT_9_PT);
-  u8g2.setCursor(20, 35);
-  u8g2.print("temperature");
   display.fillRect(10, 42, 120, 58, GxEPD_WHITE);
   u8g2.setFont(FONT_58_PT);
   u8g2.setCursor(10, 100);
@@ -263,7 +258,6 @@ void Display::updateBatteryShadow(float voltage, float percentage)
 
 void Display::setTunings(double Kp, double Ki, double Kd)
 {
-  display.drawFastHLine(0, DISPLAY_HEIGHT - 18, DISPLAY_WIDTH, GxEPD_BLACK);
   u8g2.setFont(FONT_6_PT);
   u8g2.setCursor(0, DISPLAY_HEIGHT - 8);
   char buffer[DISPLAY_WIDTH];
@@ -273,26 +267,44 @@ void Display::setTunings(double Kp, double Ki, double Kd)
   hasUpdates = true;
 }
 
-// void Display::setPidOutput(uint8_t output)
-// {
-//   int16_t SIZE = 16;
-//   int16_t ICON_FAN = 66;
-//   uint16_t x = DISPLAY_WIDTH - (SIZE * 2);
-//   uint16_t y = DISPLAY_HEIGHT;
+void Display::drawLabels()
+{
+  // Top line
+  display.drawFastHLine(0, 18, DISPLAY_WIDTH, GxEPD_BLACK);
 
-//   // Clear
-//   display.fillRect(x, y - SIZE, SIZE * 2, SIZE, GxEPD_WHITE);
+  // Bottom line
+  display.drawFastHLine(0, DISPLAY_HEIGHT - 18, DISPLAY_WIDTH, GxEPD_BLACK);
 
-//   u8g2.setFont(u8g2_font_open_iconic_embedded_1x_t);
-//   u8g2.drawGlyph(x, y - 7, ICON_FAN);
+  // Temperature label
+  u8g2.setFont(FONT_9_PT);
+  u8g2.setCursor(20, 35);
+  u8g2.print("temperature");
 
-//   u8g2.setFont(FONT_6_PT);
-//   u8g2.setCursor(x + (SIZE / 2), y - 8);
-//   char buffer[3];
-//   sprintf(buffer, "%d%%", output);
-//   u8g2.print(buffer);
+  // Setpoint labels
+  u8g2.setCursor(150, 35);
+  u8g2.print("setpoint");
 
-//   Log.notice("UPDATING PID DISPLAY %d", output);
-//   display.drawRect(x, y - SIZE, SIZE * 2, SIZE, GxEPD_BLACK);
-//   display.updateWindow(x, y - SIZE, SIZE * 2, SIZE, true);
-// }
+  hasUpdates = true;
+}
+
+void Display::setPidOutput(uint8_t output)
+{
+  int16_t SIZE = 16;
+  int16_t ICON_FAN = 66;
+  uint16_t x = DISPLAY_WIDTH - (SIZE * 2);
+  uint16_t y = DISPLAY_HEIGHT;
+
+  // Clear
+  display.fillRect(x, y - SIZE, SIZE * 2, SIZE, GxEPD_WHITE);
+
+  u8g2.setFont(u8g2_font_open_iconic_embedded_1x_t);
+  u8g2.drawGlyph(x, y - 7, ICON_FAN);
+
+  u8g2.setFont(FONT_6_PT);
+  u8g2.setCursor(x + (SIZE / 2) + 2, y - 8);
+  char buffer[3];
+  sprintf(buffer, "%d%%", output);
+  u8g2.print(buffer);
+
+  display.updateWindow(x, y - SIZE, SIZE * 2, SIZE, true);
+}
