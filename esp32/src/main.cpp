@@ -63,7 +63,7 @@ void mqttMessageHandler(String &topic, String &payload)
 
 void setup()
 {
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Prevent brownouts by silencing them. You probably want to keep this.
+  // WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Prevent brownouts by silencing them. You probably want to keep this.
 
   Serial.begin(115200);
   Log.begin(LOG_LEVEL, &Serial, true);
