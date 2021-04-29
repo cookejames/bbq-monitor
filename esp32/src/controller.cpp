@@ -249,7 +249,7 @@ void Controller::processControlDesiredState(JsonObject desired)
       servoOpening = (uint8_t)desired["servoOpening"];
       Log.notice("Controller servoOpening manually set to %d", servoOpening);
     }
-    updateDamper(false);
+    updateDamper();
   }
 
   // Publish the current state
@@ -303,10 +303,11 @@ void Controller::updateControlStateShadow(bool publishAll)
     reported["sensor"] = probe;
     lastDeviceState.sensor = probe;
   }
-  if (publishAll || lastDeviceState.fanDuty != fanDuty)
+  uint8_t duty = damper::getFanDuty();
+  if (publishAll || lastDeviceState.fanDuty != duty)
   {
-    reported["fanDuty"] = fanDuty;
-    lastDeviceState.fanDuty = fanDuty;
+    reported["fanDuty"] = duty;
+    lastDeviceState.fanDuty = duty;
   }
   uint16_t rpm = damper::getRPM();
   if (publishAll || lastDeviceState.fanSpeed != rpm)
@@ -314,10 +315,11 @@ void Controller::updateControlStateShadow(bool publishAll)
     reported["fanSpeed"] = rpm;
     lastDeviceState.fanSpeed = rpm;
   }
-  if (publishAll || lastDeviceState.servoOpening != servoOpening)
+  uint8_t opening = damper::getServoPercent();
+  if (publishAll || lastDeviceState.servoOpening != opening)
   {
-    reported["servoOpening"] = servoOpening;
-    lastDeviceState.servoOpening = servoOpening;
+    reported["servoOpening"] = opening;
+    lastDeviceState.servoOpening = opening;
   }
   bool startupMode = isStartupMode();
   if (publishAll || lastDeviceState.startupMode != startupMode)
@@ -344,13 +346,8 @@ void Controller::updateControlStateShadow()
 
 void Controller::updateDamper()
 {
-  updateDamper(true);
-}
-
-void Controller::updateDamper(bool useAveragedValue)
-{
-  damper::updateFanDuty(fanDuty);
-  damper::updateServoPercent(servoOpening, useAveragedValue);
+  damper::updateFanDuty(fanDuty, isAutomaticControl());
+  damper::updateServoPercent(servoOpening, isAutomaticControl());
 }
 
 void Controller::updatePidShadow()
