@@ -19,15 +19,15 @@
 #ifdef BOARD_TTGO_T5
 #define LILYGO_T5_V213
 #define HAS_DISPLAY
-#define SERVO_PIN 22
-#define FAN_PWM_PIN 21
-#define FAN_RPM_PIN 13
+#define SERVO_PIN 13
+#define FAN_PWM_PIN 15
+#define FAN_RPM_PIN 27
 #endif
 
 #define FAN_MIN_PWM 15
 #define FAN_MAX_PWM 50
 
-#define SERVO_OPEN 175 // The angle the servo is open at
+#define SERVO_OPEN 175  // The angle the servo is open at
 #define SERVO_CLOSED 12 // The angle the servo is closed at
 #define SERVO_MIN_PULSE_WIDTH 1100
 #define SERVO_MAX_PULSE_WIDTH 2200
