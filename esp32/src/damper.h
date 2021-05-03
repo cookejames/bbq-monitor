@@ -1,6 +1,7 @@
 #ifndef damper_h
 #define damper_h
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 namespace damper
 {
@@ -13,6 +14,8 @@ namespace damper
   void updateServoPercent(uint8_t, bool);
   uint8_t getFanDuty();
   uint8_t getServoPercent();
+  void processDamperDesireState(JsonObject doc);
+  void updateDamperShadow();
 }
 
 #endif

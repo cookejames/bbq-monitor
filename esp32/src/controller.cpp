@@ -8,7 +8,7 @@
 #define TIME_BETWEEN_AVERAGE_READINGS 10000
 #define TIME_BETWEEN_CONTROLSTATE_PUBLISH 5 * 60 * 1000
 
-Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 10, Ki = 0.15, Kd = 15, P_ON_M, PID_MODE),
+Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 15, Ki = 0.15, Kd = 15, P_ON_M, PID_MODE),
                            temperatureAverage(30)
 {
 }

@@ -54,6 +54,10 @@ void mqttMessageHandler(String &topic, String &payload)
     {
       controller.processPidDesiredState(doc["state"]["desired"]);
     }
+    else if (topic.indexOf("/damper/") >= 0)
+    {
+      damper::processDamperDesireState(doc["state"]["desired"]);
+    }
     else
     {
       Log.warning("Received MQTT message on unknown topic: %s - %s", topic.c_str(), payload.c_str());
@@ -93,6 +97,8 @@ void setup()
   {
     AwsIot::connect();
     AwsIot::publishToShadow("controlstate", "get", "");
+    damper::updateDamperShadow();
+    AwsIot::publishToShadow("damper", "get", "");
   }
   else
   {

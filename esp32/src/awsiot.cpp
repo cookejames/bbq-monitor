@@ -116,6 +116,8 @@ void AwsIot::subscribe()
   subscribeToShadow("controlstate", "update/accepted");
   subscribeToShadow("pid", "get/accepted");
   subscribeToShadow("pid", "update/accepted");
+  subscribeToShadow("damper", "get/accepted");
+  subscribeToShadow("damper", "update/accepted");
 }
 
 void AwsIot::publishToShadow(const char *shadowName, const char *method, const char *message)
