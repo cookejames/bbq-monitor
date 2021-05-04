@@ -51,21 +51,29 @@ private:
   uint32_t lidOpenModeStartTime = 0;
   // Don't enable lid open mode at startup
   uint32_t lidOpenModeNextEligibleStart = LID_OPEN_MODE_DURATION;
+  bool isStartupMode = false;
+  uint32_t startupModeStartTime = 0;
+  uint8_t startupModeServoOpening = 0;
+  uint8_t startupModefanDuty = 0;
   double pidInput = 0;
   double pidOutput = 0;
   double pidSetpoint = 0;
   double Kp;
   double Ki;
   double Kd;
-  bool isStartupMode();
   bool shouldLidOpenMode();
   void updateTemperatureShadow();
   void updateTemperatureShadow(bool *);
   void updateControlStateShadow();
   void updateControlStateShadow(bool);
+  void updateStartupModeShadow();
   void updatePidShadow();
   void updateDamper();
   bool isAutomaticControl();
+  void enableStartupMode();
+  void disableStartupMode();
+  void enableLidOpenMode();
+  void disableLidOpenMode();
 };
 
 #endif

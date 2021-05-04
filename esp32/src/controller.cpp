@@ -35,7 +35,7 @@ void Controller::setup()
 
 bool Controller::isAutomaticControl()
 {
-  return setpoint != SETPOINT_MANUAL_OVERRIDE;
+  return !isStartupMode && setpoint != SETPOINT_MANUAL_OVERRIDE;
 }
 
 void Controller::run()
@@ -48,6 +48,18 @@ void Controller::run()
     lastControlStatePublishTime = millis();
   }
   damper::check();
+
+  if (isStartupMode && millis() > startupModeStartTime + STARTUP_MODE_DURATION)
+  {
+    disableStartupMode();
+    updateStartupModeShadow();
+  }
+
+  // Startup mode overrides everything else
+  if (isStartupMode)
+  {
+    return;
+  }
 
   if (!isAutomaticControl())
   {
@@ -74,44 +86,18 @@ void Controller::run()
   else if (LID_OPEN_MODE_ENABLED && shouldLidOpen && !lidOpenMode)
   {
     // Lid open mode should be enabled but isn't
-    Log.notice("Enabling lid open mode until %d. Temperature %dC is more than %Fpc below the temperature average of %F.",
-               millis() + LID_OPEN_MODE_DURATION, temperature, ((1 - LID_OPEN_MODE_THRESHOLD) * 100), temperatureAverage.getAvg());
-    lidOpenModeStartTime = millis();
-    lidOpenMode = true;
-    pid.SetMode(MANUAL);
-    fanDuty = 0;
-    servoOpening = servoOpening < 50 ? servoOpening : 50;
+    enableLidOpenMode();
     updateControlStateShadow();
   }
   else if (LID_OPEN_MODE_ENABLED && !shouldLidOpen && lidOpenMode)
   {
     // Lid open mode should be disabled but is enabled
-    lidOpenMode = false;
-    lidOpenModeNextEligibleStart = millis() + LID_OPEN_MODE_DURATION;
-    Log.notice("Lid open mode duration has now passed - disabling until %d", lidOpenModeNextEligibleStart);
-    pid.SetMode(AUTOMATIC);
+    disableLidOpenMode();
     updateControlStateShadow();
-  }
-  // During startup we want to disable PID control, this allows us to
-  // tune PID just for stabilising the temperature without worrying
-  // about the temperature when we are trying to start the BBQ
-  else if (isStartupMode())
-  {
-    if (pid.GetMode() == AUTOMATIC)
-    {
-      Log.notice("Startup mode enabled, controller PID set to manual");
-      pid.SetMode(MANUAL);
-    }
-    if (fanDuty != 100)
-    {
-      fanDuty = 100;
-      servoOpening = 100;
-      updateControlStateShadow();
-    }
   }
   else
   {
-
+    // PID controlled output
     if (pid.GetMode() == MANUAL)
     {
       Log.notice("Changing PID mode to automatic");
@@ -237,7 +223,19 @@ void Controller::processControlDesiredState(JsonObject desired)
     }
   }
 
-  if (!isAutomaticControl())
+  if (desired.containsKey("startupMode") && (bool)desired["startupMode"] != isStartupMode)
+  {
+    if ((bool)desired["startupMode"])
+    {
+      enableStartupMode();
+    }
+    else
+    {
+      disableStartupMode();
+    }
+  }
+
+  if (!isStartupMode && !isAutomaticControl())
   {
     if (desired.containsKey("fanDuty") && (uint16_t)desired["fanDuty"] != fanDuty)
     {
@@ -282,6 +280,23 @@ void Controller::processPidDesiredState(JsonObject desired)
   updatePidShadow();
 }
 
+void Controller::updateStartupModeShadow()
+{
+  Log.notice("Controller publishing update of startupMode to %b", isStartupMode);
+  const int capacity = JSON_OBJECT_SIZE(20);
+  StaticJsonDocument<capacity> doc;
+  JsonObject state = doc.createNestedObject("state");
+  JsonObject reported = state.createNestedObject("reported");
+  JsonObject desired = state.createNestedObject("desired");
+
+  reported["startupMode"] = isStartupMode;
+  desired["startupMode"] = isStartupMode;
+
+  char output[256];
+  serializeJson(doc, output);
+  AwsIot::publishToShadow("controlstate", "update", output);
+}
+
 void Controller::updateControlStateShadow(bool publishAll)
 {
   Log.notice("Controller publishing update of setpoint shadow");
@@ -321,11 +336,10 @@ void Controller::updateControlStateShadow(bool publishAll)
     reported["servoOpening"] = opening;
     lastDeviceState.servoOpening = opening;
   }
-  bool startupMode = isStartupMode();
-  if (publishAll || lastDeviceState.startupMode != startupMode)
+  if (publishAll || lastDeviceState.startupMode != isStartupMode)
   {
-    reported["startupMode"] = startupMode;
-    lastDeviceState.startupMode = startupMode;
+    reported["startupMode"] = isStartupMode;
+    lastDeviceState.startupMode = isStartupMode;
   }
 
   if (publishAll || lastDeviceState.lidOpenMode != lidOpenMode)
@@ -364,16 +378,6 @@ void Controller::updatePidShadow()
   char output[128];
   serializeJson(doc, output);
   AwsIot::publishToShadow("pid", "update", output);
-}
-
-bool Controller::isStartupMode()
-{
-  bool isTemperatureOutOfRange = PID_MODE == DIRECT
-                                     ? temperature < STARTUP_MODE_PERCENTAGE * (double)setpoint
-                                     : temperature > STARTUP_MODE_PERCENTAGE * (double)setpoint;
-  return STARTUP_MODE_ENABLED &&
-         !lidOpenMode &&
-         isTemperatureOutOfRange;
 }
 
 bool Controller::shouldLidOpenMode()
@@ -435,4 +439,51 @@ uint16_t Controller::getMonitoredTemperatureAverage()
     return 0;
   }
   return temperatureAverage.getAvg();
+}
+
+void Controller::enableStartupMode()
+{
+  Log.notice("Enabling startup mode");
+  isStartupMode = true;
+  // Store for reverting after the mode
+  startupModefanDuty = fanDuty;
+  startupModeServoOpening = servoOpening;
+  startupModeStartTime = millis();
+  fanDuty = 100;
+  servoOpening = 100;
+  pid.SetMode(MANUAL);
+  updateDamper();
+}
+
+void Controller::disableStartupMode()
+{
+  Log.notice("Disabling startup mode");
+  isStartupMode = false;
+  // Reset fan and servo to previous values
+  fanDuty = startupModefanDuty;
+  servoOpening = startupModeServoOpening;
+  if (isAutomaticControl())
+  {
+    pid.SetMode(AUTOMATIC);
+  }
+  updateDamper();
+}
+
+void Controller::enableLidOpenMode()
+{
+  Log.notice("Enabling lid open mode until %d. Temperature %dC is more than %Fpc below the temperature average of %F.",
+             millis() + LID_OPEN_MODE_DURATION, temperature, ((1 - LID_OPEN_MODE_THRESHOLD) * 100), temperatureAverage.getAvg());
+  lidOpenModeStartTime = millis();
+  lidOpenMode = true;
+  pid.SetMode(MANUAL);
+  fanDuty = 0;
+  servoOpening = servoOpening < 50 ? servoOpening : 50;
+}
+
+void Controller::disableLidOpenMode()
+{
+  lidOpenMode = false;
+  lidOpenModeNextEligibleStart = millis() + LID_OPEN_MODE_DURATION;
+  Log.notice("Lid open mode duration has now passed - disabling until %d", lidOpenModeNextEligibleStart);
+  pid.SetMode(AUTOMATIC);
 }
