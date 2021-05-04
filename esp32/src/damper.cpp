@@ -64,10 +64,17 @@ namespace damper
 
   void updateFanDuty(uint8_t duty, bool scale)
   {
-    if (scale)
+    // Allow the fan to actually reach 0
+    if (scale && duty > 0)
     {
       uint16_t range = fanMaxPwm - fanMinPwm;
       duty = fanMinPwm + (uint16_t)((double)duty / (double)100 * (double)range);
+    }
+    // If the fan was at 0 it might need a little kick to get up to speed
+    if (fanDuty == 0 && duty > 0)
+    {
+      fan.write(255);
+      delay(50);
     }
     fanDuty = duty;
     double scaledDuty = ((double)duty / (double)100) * (double)255;
