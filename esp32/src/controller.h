@@ -36,6 +36,7 @@ public:
   void increaseSetpoint();
   void decreaseSetpoint();
   void toggleStartupMode();
+  bool isAutomaticControl();
 
 private:
   PID pid;
@@ -69,11 +70,10 @@ private:
   void updateTemperatureShadow(bool *);
   void updateControlStateShadow();
   void updateControlStateShadow(bool);
-  void updateReportedAndDesiredShadow(const char*, int32_t);
-  void updateReportedAndDesiredShadow(const char*, bool);
+  void updateReportedAndDesiredShadow(const char *, int32_t);
+  void updateReportedAndDesiredShadow(const char *, bool);
   void updatePidShadow();
   void updateDamper();
-  bool isAutomaticControl();
   void enableStartupMode();
   void disableStartupMode();
   void enableLidOpenMode();

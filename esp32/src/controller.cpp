@@ -472,6 +472,7 @@ void Controller::enableStartupMode()
   fanDuty = 100;
   servoOpening = 100;
   pid.SetMode(MANUAL);
+  Display::setStartupMode();
   updateDamper();
 }
 
@@ -486,6 +487,7 @@ void Controller::disableStartupMode()
   {
     pid.SetMode(AUTOMATIC);
   }
+  Display::setSetpoint(setpoint);
   updateDamper();
 }
 
@@ -510,23 +512,26 @@ void Controller::disableLidOpenMode()
 
 void Controller::increaseSetpoint()
 {
-  setpoint += 5;
-  Display::setSetpoint(setpoint);
+  setpoint = setpoint == SETPOINT_MANUAL_OVERRIDE ? 0 : setpoint + 5;
+  Display::setSetpoint(setpoint, true);
   updateReportedAndDesiredShadow("setpoint", setpoint);
 }
 
 void Controller::decreaseSetpoint()
 {
-  setpoint -= 5;
-  Display::setSetpoint(setpoint);
+  setpoint = setpoint < 5 ? 0 : setpoint - 5;
+  Display::setSetpoint(setpoint, true);
   updateReportedAndDesiredShadow("setpoint", setpoint);
 }
 
 void Controller::toggleStartupMode()
 {
-  if (isStartupMode) {
+  if (isStartupMode)
+  {
     disableStartupMode();
-  } else {
+  }
+  else
+  {
     enableStartupMode();
   }
   updateReportedAndDesiredShadow("startupMode", isStartupMode);

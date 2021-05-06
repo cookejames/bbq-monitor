@@ -157,29 +157,60 @@ void Display::setTemperature(uint16_t temperature)
   hasTemperatureUpdate = true;
 }
 
-void Display::setSetpoint(int16_t temperature)
+void Display::drawSetpoint(int x, int y, int16_t temperature)
+{
+  display.fillRect(x, y - 58, DISPLAY_WIDTH - x, 58, GxEPD_WHITE);
+
+  u8g2.setFont(FONT_9_PT);
+  u8g2.setCursor(x, y);
+  u8g2.setFont(u8g2_font_logisoso58_tr);
+  u8g2.print(temperature);
+}
+
+void Display::drawSetpoint(int x, int y, const char *state)
+{
+  display.fillRect(x, y - 58, DISPLAY_WIDTH - x, 58, GxEPD_WHITE);
+
+  u8g2.setFont(FONT_9_PT);
+  u8g2.setCursor(x + 20, y);
+  u8g2.setFont(FONT_58_PT);
+  u8g2.print(state);
+}
+
+void Display::setSetpoint(int16_t temperature, bool partialUpdate)
 {
   int x = 130;
   int y = 100;
 
-  u8g2.setFont(FONT_9_PT);
-  u8g2.setCursor(x + 20, y - 65);
-  u8g2.print("setpoint");
-
-  display.fillRect(x, y - 58, DISPLAY_WIDTH - x, 58, GxEPD_WHITE);
   if (temperature == SETPOINT_MANUAL_OVERRIDE)
   {
-    u8g2.setCursor(x + 20, y);
-    u8g2.setFont(FONT_58_PT);
-    u8g2.print("M");
+    drawSetpoint(x, y, "M");
   }
   else
   {
-    u8g2.setCursor(x, y);
-    u8g2.setFont(u8g2_font_logisoso58_tr);
-    u8g2.print(temperature);
+    drawSetpoint(x, y, temperature);
   }
 
+  if (partialUpdate)
+  {
+    display.updateWindow(x, y - 58, DISPLAY_WIDTH - x, 58, true);
+  }
+  else
+  {
+    hasUpdates = true;
+  }
+}
+
+void Display::setSetpoint(int16_t temperature) {
+  setSetpoint(temperature, false);
+}
+
+void Display::setStartupMode()
+{
+  int x = 130;
+  int y = 100;
+
+  drawSetpoint(x, y, "S");
   hasUpdates = true;
 }
 

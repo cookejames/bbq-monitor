@@ -16,8 +16,10 @@ public:
   static void setIpAddress(const char *);
   static void setTemperature(uint16_t);
   static void setSetpoint(int16_t);
+  static void setSetpoint(int16_t, bool);
   static void setTunings(double, double, double);
   static void setPidOutput(uint8_t);
+  static void setStartupMode();
   static void check();
 
 private:
@@ -27,6 +29,8 @@ private:
   static void drawGrid();
   static void drawBattery();
   static void drawLabels();
+  static void drawSetpoint(int, int, int16_t);
+  static void drawSetpoint(int, int, const char *);
   static void updateBatteryShadow(float, float);
   static bool hasUpdates;
   static bool hasTemperatureUpdate;

@@ -1,35 +1,111 @@
 #include <buttons.h>
-#include <EasyButton.h>
 #include <config.h>
 #include <ArduinoLog.h>
 
 namespace buttons
 {
-  static EasyButton upButton(BUTTON_UP_PIN, 35, true, false);
-  static EasyButton downButton(BUTTON_DOWN_PIN, 35, true, false);
+  // Create a class to manage button debounce, short and long presses
+  Button::Button(int pin)
+  {
+    _pin = pin;
+    pinMode(_pin, mode == Button::ACTIVE_LOW ? INPUT_PULLUP : INPUT_PULLDOWN);
+  }
+
+  void Button::enableInterrupt(callback_t callback)
+  {
+    attachInterrupt(digitalPinToInterrupt(_pin), callback, CHANGE);
+  }
+
+  void Button::onShortPress(callback_t callback)
+  {
+    shortPressCb = callback;
+  }
+
+  void Button::onLongPress(callback_t callback, uint16_t duration)
+  {
+    longPressCb = callback;
+    longPressDuration = duration;
+  }
+
+  void Button::read()
+  {
+    bool state = digitalRead(_pin);
+    bool pressed = state == mode;
+
+    if (millis() < debounceUntil)
+    {
+      return;
+    }
+    if (pressed)
+    {
+      pressedTime = millis();
+    }
+    if (!pressed)
+    {
+      uint32_t duration = millis() - pressedTime;
+      debounceUntil = millis() + debounceTime;
+      if (duration < longPressDuration)
+      {
+        hasShortPress = true;
+      }
+      else
+      {
+        hasLongPress = true;
+      }
+    }
+  }
+
+  void Button::check()
+  {
+    if (hasShortPress)
+    {
+      shortPressCb();
+      hasShortPress = false;
+    }
+    if (hasLongPress)
+    {
+      longPressCb();
+      hasLongPress = false;
+    }
+  }
+
+  //Setup button logic
+  Button downButton(BUTTON_DOWN_PIN);
+  Button upButton(BUTTON_UP_PIN);
   static Controller *controller;
 
-  void buttonISR()
+  void ICACHE_RAM_ATTR downButtonISR()
   {
     downButton.read();
+  }
+
+  void ICACHE_RAM_ATTR upButtonISR()
+  {
+    upButton.read();
   }
 
   void upShortPressed()
   {
     Log.trace("Up button short pressed");
-    // controller->increaseSetpoint();
+    if (controller->isAutomaticControl())
+    {
+      controller->increaseSetpoint();
+    }
   }
 
   void upLongPressed()
   {
     Log.trace("Up button long pressed");
-    // controller->toggleStartupMode();
+    controller->toggleStartupMode();
   }
 
   void downShortPressed()
   {
     Log.trace("Down button short pressed");
-    // controller->decreaseSetpoint();
+    if (controller->isAutomaticControl())
+    {
+      controller->decreaseSetpoint();
+    }
   }
 
   void downLongPressed()
@@ -40,17 +116,16 @@ namespace buttons
   void setup(Controller *_controller)
   {
     controller = _controller;
-    downButton.enableInterrupt(buttonISR);
-    upButton.onPressed(upShortPressed);
-    upButton.onPressedFor(BUTTON_LONG_PRESS_DURATION, upLongPressed);
-    downButton.onPressed(downShortPressed);
-    downButton.onPressedFor(BUTTON_LONG_PRESS_DURATION, downLongPressed);
+    downButton.enableInterrupt(downButtonISR);
+    downButton.onShortPress(downShortPressed);
+    downButton.onLongPress(downLongPressed, 500);
+    upButton.enableInterrupt(upButtonISR);
+    upButton.onShortPress(upShortPressed);
+    upButton.onLongPress(upLongPressed, 500);
   }
 
-  void check()
-  {
-    // downButton.update();
-    // upButton.read();
-    // downButton.read();
+  void check() {
+    upButton.check();
+    downButton.check();
   }
 }

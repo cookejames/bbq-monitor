@@ -13,7 +13,7 @@
 #ifdef BOARD_DEVKIT
 #define SERVO_PIN 26
 #define FAN_PWM_PIN 27
-#define FAN_RPM_PIN 13
+// #define FAN_RPM_PIN 13
 #define BUTTON_UP_PIN 12
 #define BUTTON_DOWN_PIN 25
 #endif
@@ -23,9 +23,9 @@
 #define HAS_DISPLAY
 #define SERVO_PIN 13
 #define FAN_PWM_PIN 15
-#define FAN_RPM_PIN 27
-#define BUTTON_UP_PIN 12
-#define BUTTON_DOWN_PIN 0
+// #define FAN_RPM_PIN 2
+#define BUTTON_UP_PIN 27
+#define BUTTON_DOWN_PIN 26
 #endif
 
 #define FAN_MIN_PWM 15

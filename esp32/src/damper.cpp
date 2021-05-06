@@ -26,6 +26,11 @@ namespace damper
   static uint8_t servoClosedAngle = SERVO_CLOSED_ANGLE;
   static uint8_t fanMinPwm = FAN_MIN_PWM;
   static uint8_t fanMaxPwm = FAN_MAX_PWM;
+#ifdef FAN_RPM_PIN
+  static bool fanRpmEnabled = true;
+#else
+  static bool fanRpmEnabled = false;
+#endif
 
   void ICACHE_RAM_ATTR handleInterrupt()
   {
@@ -36,8 +41,10 @@ namespace damper
   {
     servo.attach(SERVO_PIN, SERVO_MIN_PULSE_WIDTH, SERVO_MAX_PULSE_WIDTH);
     fan.attachPin(FAN_PWM_PIN, FAN_FREQUENCY, FAN_RESOLUTION);
+#ifdef FAN_RPM_PIN
     pinMode(FAN_RPM_PIN, INPUT);
     attachInterrupt(FAN_RPM_PIN, handleInterrupt, RISING);
+#endif
     servoAverage.begin();
   }
 
@@ -49,7 +56,7 @@ namespace damper
 
   void check()
   {
-    if ((millis() - previousmills) > RPM_CALCULATION_PERIOD)
+    if (fanRpmEnabled && (millis() - previousmills) > RPM_CALCULATION_PERIOD)
     { // Process counters once every second
       lastRpm = computeFanSpeed(interruptCounter, millis() - previousmills);
       interruptCounter = 0;
