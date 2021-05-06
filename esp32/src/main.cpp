@@ -146,5 +146,5 @@ void loop()
   controller.run();
 
   Display::check();
-  delay(100);
+  delay(10);
 }

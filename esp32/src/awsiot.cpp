@@ -132,7 +132,6 @@ void AwsIot::check()
   if (isConnected())
   {
     client.loop();
-    Log.verbose("%d items in AWS IOT publish buffer", iotBuffer.available());
     while (iotBuffer.available())
     {
       MqttMessage message = iotBuffer.get();

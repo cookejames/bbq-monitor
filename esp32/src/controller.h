@@ -33,6 +33,9 @@ public:
   uint16_t getMonitoredTemperature();
   uint16_t getMonitoredTemperatureAverage();
   void run();
+  void increaseSetpoint();
+  void decreaseSetpoint();
+  void toggleStartupMode();
 
 private:
   PID pid;
@@ -66,7 +69,8 @@ private:
   void updateTemperatureShadow(bool *);
   void updateControlStateShadow();
   void updateControlStateShadow(bool);
-  void updateStartupModeShadow();
+  void updateReportedAndDesiredShadow(const char*, int32_t);
+  void updateReportedAndDesiredShadow(const char*, bool);
   void updatePidShadow();
   void updateDamper();
   bool isAutomaticControl();

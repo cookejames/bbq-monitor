@@ -4,6 +4,7 @@
 #include <awsiot.h>
 #include <damper.h>
 #include <display.h>
+#include <buttons.h>
 
 #define TIME_BETWEEN_AVERAGE_READINGS 10000
 #define TIME_BETWEEN_CONTROLSTATE_PUBLISH 5 * 60 * 1000
@@ -28,6 +29,7 @@ void Controller::setup()
 
   temperatureAverage.begin();
   damper::setup();
+  buttons::setup(this);
   updateDamper();
   Display::setSetpoint(setpoint);
   Display::setTunings(pid.GetKp(), pid.GetKi(), pid.GetKd());
@@ -48,11 +50,12 @@ void Controller::run()
     lastControlStatePublishTime = millis();
   }
   damper::check();
+  buttons::check();
 
   if (isStartupMode && millis() > startupModeStartTime + STARTUP_MODE_DURATION)
   {
     disableStartupMode();
-    updateStartupModeShadow();
+    updateReportedAndDesiredShadow("startupMode", isStartupMode);
   }
 
   // Startup mode overrides everything else
@@ -280,17 +283,34 @@ void Controller::processPidDesiredState(JsonObject desired)
   updatePidShadow();
 }
 
-void Controller::updateStartupModeShadow()
+void Controller::updateReportedAndDesiredShadow(const char *property, int32_t value)
 {
-  Log.notice("Controller publishing update of startupMode to %b", isStartupMode);
+  Log.notice("Controller publishing update of %s to %d", property, value);
   const int capacity = JSON_OBJECT_SIZE(20);
   StaticJsonDocument<capacity> doc;
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
   JsonObject desired = state.createNestedObject("desired");
 
-  reported["startupMode"] = isStartupMode;
-  desired["startupMode"] = isStartupMode;
+  reported[property] = value;
+  desired[property] = value;
+
+  char output[256];
+  serializeJson(doc, output);
+  AwsIot::publishToShadow("controlstate", "update", output);
+}
+
+void Controller::updateReportedAndDesiredShadow(const char *property, bool value)
+{
+  Log.notice("Controller publishing update of %s to %b", property, value);
+  const int capacity = JSON_OBJECT_SIZE(20);
+  StaticJsonDocument<capacity> doc;
+  JsonObject state = doc.createNestedObject("state");
+  JsonObject reported = state.createNestedObject("reported");
+  JsonObject desired = state.createNestedObject("desired");
+
+  reported[property] = value;
+  desired[property] = value;
 
   char output[256];
   serializeJson(doc, output);
@@ -486,4 +506,28 @@ void Controller::disableLidOpenMode()
   lidOpenModeNextEligibleStart = millis() + LID_OPEN_MODE_DURATION;
   Log.notice("Lid open mode duration has now passed - disabling until %d", lidOpenModeNextEligibleStart);
   pid.SetMode(AUTOMATIC);
+}
+
+void Controller::increaseSetpoint()
+{
+  setpoint += 5;
+  Display::setSetpoint(setpoint);
+  updateReportedAndDesiredShadow("setpoint", setpoint);
+}
+
+void Controller::decreaseSetpoint()
+{
+  setpoint -= 5;
+  Display::setSetpoint(setpoint);
+  updateReportedAndDesiredShadow("setpoint", setpoint);
+}
+
+void Controller::toggleStartupMode()
+{
+  if (isStartupMode) {
+    disableStartupMode();
+  } else {
+    enableStartupMode();
+  }
+  updateReportedAndDesiredShadow("startupMode", isStartupMode);
 }
