@@ -319,11 +319,11 @@ void Controller::updateReportedAndDesiredShadow(const char *property, bool value
 
 void Controller::updateControlStateShadow(bool publishAll)
 {
-  Log.notice("Controller publishing update of setpoint shadow");
   const int capacity = JSON_OBJECT_SIZE(20);
   StaticJsonDocument<capacity> doc;
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
+  bool updatedProperty = false;
 
   // Keep track of the last reported values so that we only send results that have changed.
   if (publishAll || lastDeviceState.setpoint != setpoint)
@@ -332,42 +332,55 @@ void Controller::updateControlStateShadow(bool publishAll)
     lastDeviceState.setpoint = setpoint;
     // Periodically publish the setpoint for graphing purposes
     lastControlStatePublishTime = millis();
+    updatedProperty = true;
   }
   if (publishAll || lastDeviceState.sensor != probe)
   {
     reported["sensor"] = probe;
     lastDeviceState.sensor = probe;
+    updatedProperty = true;
   }
   uint8_t duty = damper::getFanDuty();
   if (publishAll || lastDeviceState.fanDuty != duty)
   {
     reported["fanDuty"] = duty;
     lastDeviceState.fanDuty = duty;
+    updatedProperty = true;
   }
   uint16_t rpm = damper::getRPM();
   if (publishAll || lastDeviceState.fanSpeed != rpm)
   {
     reported["fanSpeed"] = rpm;
     lastDeviceState.fanSpeed = rpm;
+    updatedProperty = true;
   }
   uint8_t opening = damper::getServoPercent();
   if (publishAll || lastDeviceState.servoOpening != opening)
   {
     reported["servoOpening"] = opening;
     lastDeviceState.servoOpening = opening;
+    updatedProperty = true;
   }
   if (publishAll || lastDeviceState.startupMode != isStartupMode)
   {
     reported["startupMode"] = isStartupMode;
     lastDeviceState.startupMode = isStartupMode;
+    updatedProperty = true;
   }
 
   if (publishAll || lastDeviceState.lidOpenMode != lidOpenMode)
   {
     reported["lidOpenMode"] = lidOpenMode;
     lastDeviceState.lidOpenMode = lidOpenMode;
+    updatedProperty = true;
   }
 
+  if (!updatedProperty)
+  {
+    return;
+  }
+
+  Log.notice("Controller publishing update of setpoint shadow");
   char output[256];
   serializeJson(doc, output);
   AwsIot::publishToShadow("controlstate", "update", output);

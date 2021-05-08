@@ -24,8 +24,8 @@
 #define SERVO_PIN 13
 #define FAN_PWM_PIN 15
 // #define FAN_RPM_PIN 2
-#define BUTTON_UP_PIN 27
-#define BUTTON_DOWN_PIN 26
+#define BUTTON_UP_PIN 26
+#define BUTTON_DOWN_PIN 27
 #endif
 
 #define FAN_MIN_PWM 15
