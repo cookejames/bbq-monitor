@@ -87,6 +87,13 @@ namespace buttons
   void upShortPressed()
   {
     Log.trace("Up button short pressed");
+    // Disable lid open mode on press
+    if (controller->isLidOpenMode())
+    {
+      controller->disableLidOpenMode();
+      return;
+    }
+
     if (controller->isAutomaticControl())
     {
       controller->increaseSetpoint();
@@ -102,6 +109,13 @@ namespace buttons
   void downShortPressed()
   {
     Log.trace("Down button short pressed");
+    // Disable lid open mode on press
+    if (controller->isLidOpenMode())
+    {
+      controller->disableLidOpenMode();
+      return;
+    }
+
     if (controller->isAutomaticControl())
     {
       controller->decreaseSetpoint();
@@ -124,7 +138,8 @@ namespace buttons
     upButton.onLongPress(upLongPressed, 500);
   }
 
-  void check() {
+  void check()
+  {
     upButton.check();
     downButton.check();
   }

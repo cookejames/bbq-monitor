@@ -37,6 +37,8 @@ public:
   void decreaseSetpoint();
   void toggleStartupMode();
   bool isAutomaticControl();
+  bool isLidOpenMode();
+  void disableLidOpenMode();
 
 private:
   PID pid;
@@ -77,7 +79,6 @@ private:
   void enableStartupMode();
   void disableStartupMode();
   void enableLidOpenMode();
-  void disableLidOpenMode();
 };
 
 #endif

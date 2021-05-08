@@ -201,7 +201,8 @@ void Display::setSetpoint(int16_t temperature, bool partialUpdate)
   }
 }
 
-void Display::setSetpoint(int16_t temperature) {
+void Display::setSetpoint(int16_t temperature)
+{
   setSetpoint(temperature, false);
 }
 
@@ -211,6 +212,15 @@ void Display::setStartupMode()
   int y = 100;
 
   drawSetpoint(x, y, "S");
+  hasUpdates = true;
+}
+
+void Display::setLidOpenMode()
+{
+  int x = 130;
+  int y = 100;
+
+  drawSetpoint(x, y, "L");
   hasUpdates = true;
 }
 

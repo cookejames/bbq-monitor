@@ -52,6 +52,7 @@ void Controller::run()
   damper::check();
   buttons::check();
 
+  // Check if startup mode has expired
   if (isStartupMode && millis() > startupModeStartTime + STARTUP_MODE_DURATION)
   {
     disableStartupMode();
@@ -64,6 +65,7 @@ void Controller::run()
     return;
   }
 
+  // If we're not in automatic control we don't need to do anything else
   if (!isAutomaticControl())
   {
 
@@ -75,11 +77,13 @@ void Controller::run()
     return;
   }
 
+  // Automatic mode cannot proceed without a temperature connection
   if (!iBBQ::isConnected())
   {
     return;
   }
 
+  // Check if we need to make any changes to lid open mode
   bool shouldLidOpen = shouldLidOpenMode();
   if (LID_OPEN_MODE_ENABLED && shouldLidOpen && lidOpenMode)
   {
@@ -100,7 +104,7 @@ void Controller::run()
   }
   else
   {
-    // PID controlled output
+    // Run the PID loop
     if (pid.GetMode() == MANUAL)
     {
       Log.notice("Changing PID mode to automatic");
@@ -235,6 +239,18 @@ void Controller::processControlDesiredState(JsonObject desired)
     else
     {
       disableStartupMode();
+    }
+  }
+
+  if (desired.containsKey("lidOpenMode") && (bool)desired["lidOpenMode"] != lidOpenMode)
+  {
+    if ((bool)desired["lidOpenMode"])
+    {
+      enableLidOpenMode();
+    }
+    else
+    {
+      disableLidOpenMode();
     }
   }
 
@@ -509,10 +525,12 @@ void Controller::enableLidOpenMode()
   Log.notice("Enabling lid open mode until %d. Temperature %dC is more than %Fpc below the temperature average of %F.",
              millis() + LID_OPEN_MODE_DURATION, temperature, ((1 - LID_OPEN_MODE_THRESHOLD) * 100), temperatureAverage.getAvg());
   lidOpenModeStartTime = millis();
+  lidOpenModeNextEligibleStart = millis();
   lidOpenMode = true;
   pid.SetMode(MANUAL);
   fanDuty = 0;
   servoOpening = servoOpening < 50 ? servoOpening : 50;
+  Display::setLidOpenMode();
 }
 
 void Controller::disableLidOpenMode()
@@ -521,6 +539,7 @@ void Controller::disableLidOpenMode()
   lidOpenModeNextEligibleStart = millis() + LID_OPEN_MODE_DURATION;
   Log.notice("Lid open mode duration has now passed - disabling until %d", lidOpenModeNextEligibleStart);
   pid.SetMode(AUTOMATIC);
+  Display::setSetpoint(setpoint);
 }
 
 void Controller::increaseSetpoint()
@@ -548,4 +567,9 @@ void Controller::toggleStartupMode()
     enableStartupMode();
   }
   updateReportedAndDesiredShadow("startupMode", isStartupMode);
+}
+
+bool Controller::isLidOpenMode()
+{
+  return lidOpenMode;
 }

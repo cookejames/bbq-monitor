@@ -15,7 +15,12 @@ namespace damper
 
   static Servo servo;
   static ESP32PWM fan;
-  static movingAvg servoAverage(10);
+  /* 
+    This is based on the number of updates / s
+     The main loop has a 10ms delay so this averages approximately
+     the last seconds worth of values.
+  */
+  static movingAvg servoAverage(100);
 
   static volatile uint16_t interruptCounter = 0; //counter use to detect hall sensor in fan
   static uint64_t previousmills = 0;

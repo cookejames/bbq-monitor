@@ -20,6 +20,7 @@ public:
   static void setTunings(double, double, double);
   static void setPidOutput(uint8_t);
   static void setStartupMode();
+  static void setLidOpenMode();
   static void check();
 
 private:
