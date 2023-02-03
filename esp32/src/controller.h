@@ -7,6 +7,7 @@
 #include <config.h>
 
 #define SETPOINT_MANUAL_OVERRIDE -1
+#define TEMPERATURE_NO_VALUE 6552
 
 struct ControlState
 {

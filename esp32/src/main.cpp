@@ -4,7 +4,9 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include "soc/rtc_cntl_reg.h"
+#ifdef USE_IBBQ
 #include <ibbq.h>
+#endif
 #include <wifi.h>
 #include <awsiot.h>
 #include <controller.h>
@@ -88,8 +90,10 @@ void setup()
   timeClient.begin();
   timeClient.update();
 
+  #ifdef USE_IBBQ
   // Connect thermometer
   iBBQ::connect(temperatureReceivedCallback);
+  #endif
 
   // Connect to MQTT
   AwsIot::setMessageHander(mqttMessageHandler);
@@ -110,8 +114,15 @@ long lastReport = 0;
 void loop()
 {
   // Set the status LED
-  Display::setStatus(wifi.isConnected(), AwsIot::isConnected(), iBBQ::isConnected());
-  if (wifi.isConnected() && iBBQ::isConnected() && AwsIot::isConnected())
+  bool tempConnected;
+  #ifdef USE_IBBQ
+  tempConnected = iBBQ::isConnected();
+  #else
+  tempConnected = true;
+  #endif
+  Display::setStatus(wifi.isConnected(), AwsIot::isConnected(), tempConnected);
+
+  if (wifi.isConnected() && tempConnected && AwsIot::isConnected())
   {
     status(STATUS_OK);
     lastOkTime = millis();
@@ -137,7 +148,9 @@ void loop()
     lastReport = millis();
   }
 
+  #ifdef USE_IBBQ
   iBBQ::check();
+  #endif
   wifi.check();
   if (wifi.isConnected())
   {

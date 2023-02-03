@@ -1,6 +1,8 @@
 #include <ArduinoLog.h>
 #include <controller.h>
+#ifdef USE_IBBQ
 #include <ibbq.h>
+#endif
 #include <awsiot.h>
 #include <damper.h>
 #include <display.h>
@@ -78,10 +80,15 @@ void Controller::run()
   }
 
   // Automatic mode cannot proceed without a temperature connection
+  #ifdef USE_IBBQ
   if (!iBBQ::isConnected())
   {
     return;
   }
+  #else
+  // TODO implement other temperature logic here
+  return;
+  #endif
 
   // Check if we need to make any changes to lid open mode
   bool shouldLidOpen = shouldLidOpenMode();
@@ -187,7 +194,7 @@ void Controller::updateTemperatureShadow(bool probesToUpdate[])
   JsonObject reported = state.createNestedObject("reported");
   for (int i = 0; i < numProbes; i++)
   {
-    if (temperatures[i] != IBBQ_NO_VALUE && probesToUpdate[i])
+    if (temperatures[i] != TEMPERATURE_NO_VALUE && probesToUpdate[i])
     {
       char buffer[10];
       sprintf(buffer, "%d", i);

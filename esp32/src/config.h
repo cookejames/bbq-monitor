@@ -60,4 +60,7 @@
 
 #define BUTTON_LONG_PRESS_DURATION 1000
 
+// Use iBBQ bluetooth temperature probe
+#undef USE_IBBQ
+
 #endif
