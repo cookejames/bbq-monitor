@@ -19,7 +19,7 @@ bool Wifi::connect()
   WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
     Display::setIpAddress(WiFi.localIP().toString().c_str());
   },
-               WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP);
+               WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(THINGNAME);
   WiFi.disconnect(true);
@@ -36,10 +36,10 @@ bool Wifi::connect()
   {
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
       Serial.print("WiFi lost connection. Reason: ");
-      Serial.println(info.disconnected.reason);
+      Serial.println(info.wifi_sta_disconnected.reason);
       Wifi::reset();
     },
-                 WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+                 WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
     MDNS.begin(THINGNAME);
     enableOTA();
     Log.notice("WiFi Connected: %s - %s", WiFi.macAddress().c_str(), WiFi.localIP().toString().c_str());

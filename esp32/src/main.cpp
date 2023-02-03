@@ -71,8 +71,8 @@ void setup()
 
   Serial.begin(115200);
   Log.begin(LOG_LEVEL, &Serial, true);
-  Log.setPrefix([](Print *_logOutput) {   char c[12];sprintf(c, "%s - ", timeClient.getFormattedTime().c_str());_logOutput->print(c); });
-  Log.setSuffix([](Print *_logOutput) { _logOutput->print('\n'); });
+  // Log.setPrefix([](Print *_logOutput) {   char c[12];sprintf(c, "%s - ", timeClient.getFormattedTime().c_str());_logOutput->print(c); });
+  // Log.setSuffix([](Print *_logOutput) { _logOutput->print('\n'); });
   Display::init();
 
   //Setup the status pin
