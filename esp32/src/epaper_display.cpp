@@ -1,3 +1,5 @@
+#include <config.h>
+#ifdef BOARD_TTGO_T5
 #include <ArduinoLog.h>
 #include <ArduinoJson.h>
 #include <display.h>
@@ -349,3 +351,4 @@ void Display::setPidOutput(uint8_t output)
 
   display.updateWindow(x, y - SIZE, SIZE * 2, SIZE, true);
 }
+#endif

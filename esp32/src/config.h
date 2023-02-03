@@ -4,7 +4,8 @@
 #include <PID_v1.h>
 
 // #define BOARD_DEVKIT
-#define BOARD_TTGO_T5
+// #define BOARD_TTGO_T5
+#define BOARD_TTGO_DISPLAY
 
 #define LOG_LEVEL LOG_LEVEL_TRACE
 
@@ -20,12 +21,21 @@
 
 #ifdef BOARD_TTGO_T5
 #define LILYGO_T5_V213
-#define HAS_DISPLAY
 #define SERVO_PIN 13
 #define FAN_PWM_PIN 15
 // #define FAN_RPM_PIN 2
 #define BUTTON_UP_PIN 26
 #define BUTTON_DOWN_PIN 27
+#endif
+
+#ifdef BOARD_TTGO_DISPLAY
+#define TFT_eSPI_DISPLAY
+// TODO set correct pins
+#define SERVO_PIN 16
+#define FAN_PWM_PIN 27
+// #define FAN_RPM_PIN 2
+#define BUTTON_UP_PIN 35
+#define BUTTON_DOWN_PIN 0
 #endif
 
 #define FAN_MIN_PWM 15
