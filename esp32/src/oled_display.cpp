@@ -6,10 +6,23 @@
 #include <secrets.h>
 #include <awsiot.h>
 #include <controller.h>
+#include <TFT_eSPI.h>
+#include <SPI.h>
+#include <TTGO_T_Display.h>
+
+TFT_eSPI tft = TFT_eSPI(TFT_WIDTH, TFT_HEIGHT);
 
 void Display::init()
 {
-
+    tft.init();
+    tft.setRotation(1);
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_WHITE);
+    tft.setTextSize(2);
+    tft.println("BBQ Monitor");
+    tft.setTextSize(1);
+    tft.println("Loading...");
+    tft.setTextSize(1);
 }
 
 void Display::check()
