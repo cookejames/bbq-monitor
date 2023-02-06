@@ -31,7 +31,7 @@
 #ifdef BOARD_TTGO_DISPLAY
 #define TFT_eSPI_DISPLAY
 // TODO set correct pins
-#define SERVO_PIN 16
+#define SERVO_PIN 10
 #define FAN_PWM_PIN 27
 // #define FAN_RPM_PIN 2
 #define BUTTON_UP_PIN 35

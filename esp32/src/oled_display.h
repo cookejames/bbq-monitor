@@ -20,6 +20,12 @@
     static void setStartupMode();
     static void setLidOpenMode();
     static void check();
+  private:
+    static bool hasUpdates;
+    static bool wifiStatus;
+    static bool bleStatus;
+    static bool iotStatus;
+    static void showVoltage();
   };
   #endif
 
