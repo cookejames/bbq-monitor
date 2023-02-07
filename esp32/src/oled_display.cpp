@@ -16,14 +16,14 @@ bool Display::wifiStatus = false;
 bool Display::bleStatus = false;
 bool Display::iotStatus = false;
 bool Display::hasUpdates = false;
+bool Display::startupMode = false;
 char Display::ipAddress[] = "000.000.000.000";
 int16_t Display::imageXpos = 0;
 int16_t Display::imageYpos = 0;
 PNG Display::png;
 
 int vref = 1100;
-#define ADC_PIN         34
-
+#define ADC_PIN 34
 
 void Display::init()
 {
@@ -32,29 +32,33 @@ void Display::init()
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_WHITE);
     tft.setTextSize(2);
-    tft.setCursor(0,0);
+    tft.setCursor(0, 0);
     tft.setTextDatum(MC_DATUM);
-    tft.drawString("BBQ Monitor", TFT_HEIGHT/2, TFT_WIDTH/2);
+    tft.drawString("BBQ Monitor", TFT_HEIGHT / 2, TFT_WIDTH / 2);
     int16_t h = tft.fontHeight();
     tft.setTextSize(1);
-    tft.drawString("Loading...", TFT_HEIGHT/2, TFT_WIDTH/2 + h);
+    tft.drawString("Loading...", TFT_HEIGHT / 2, TFT_WIDTH / 2 + h);
 }
 
 void Display::check()
 {
-    if (!hasUpdates) return;
+    if (!hasUpdates)
+        return;
     hasUpdates = false;
 
     Log.trace("Updating display");
-    tft.setCursor(0,0);
+    tft.setCursor(0, 0);
     tft.fillScreen(TFT_BLACK);
 
     Display::drawStatus();
+    Display::drawTemperature();
+    // Display::drawGrid();
 }
 
 void Display::setStatus(bool wifi, bool iot, bool ble)
 {
-    if (wifiStatus == wifi && iotStatus == iot && bleStatus == ble) return;
+    if (wifiStatus == wifi && iotStatus == iot && bleStatus == ble)
+        return;
 
     wifiStatus = wifi;
     iotStatus = iot;
@@ -72,7 +76,6 @@ void Display::setIpAddress(const char *_ipAddress)
 
 void Display::setTemperature(uint16_t temperature)
 {
-
 }
 
 void Display::setSetpoint(int16_t temperature, bool partialUpdate)
@@ -82,45 +85,49 @@ void Display::setSetpoint(int16_t temperature, bool partialUpdate)
 
 void Display::setSetpoint(int16_t temperature)
 {
-
+    hasUpdates = true;
+    startupMode = false;
+    Display::check();
 }
 
 void Display::setStartupMode()
 {
-
+    hasUpdates = true;
+    startupMode = true;
+    Display::check();
 }
 
 void Display::setLidOpenMode()
 {
-
 }
 
 void Display::setTunings(double Kp, double Ki, double Kd)
 {
-
 }
 
 void Display::setPidOutput(uint8_t output)
 {
-
 }
 
 /*****   PRIVATE    *****/
-void Display::pngDrawCb(PNGDRAW *pDraw) {
-  uint16_t lineBuffer[TFT_WIDTH];          // Line buffer for rendering
-  uint8_t  maskBuffer[1 + TFT_WIDTH / 8];  // Mask buffer
+void Display::pngDrawCb(PNGDRAW *pDraw)
+{
+    uint16_t lineBuffer[TFT_WIDTH];        // Line buffer for rendering
+    uint8_t maskBuffer[1 + TFT_WIDTH / 8]; // Mask buffer
 
-  png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+    png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
 
-  if (png.getAlphaMask(pDraw, maskBuffer, 255)) {
-    tft.pushMaskedImage(imageXpos, imageYpos + pDraw->y, pDraw->iWidth, 1, lineBuffer, maskBuffer);
-  }
+    if (png.getAlphaMask(pDraw, maskBuffer, 255))
+    {
+        tft.pushMaskedImage(imageXpos, imageYpos + pDraw->y, pDraw->iWidth, 1, lineBuffer, maskBuffer);
+    }
 }
 
-void Display::pngDraw(const unsigned char *image, int16_t size, int16_t x, int16_t y) {
+void Display::pngDraw(const unsigned char *image, int16_t size, int16_t x, int16_t y)
+{
     imageXpos = x;
     imageYpos = y;
-    int16_t rc = png.openFLASH((uint8_t*)image, size, pngDrawCb);
+    int16_t rc = png.openFLASH((uint8_t *)image, size, pngDrawCb);
 
     tft.startWrite();
     rc = png.decode(NULL, 0);
@@ -128,34 +135,55 @@ void Display::pngDraw(const unsigned char *image, int16_t size, int16_t x, int16
     tft.endWrite();
 }
 
-void Display::drawStatus() {
-    static const unsigned char* ok = icon_tick;
+void Display::drawStatus()
+{
+    static const unsigned char *ok = icon_tick;
     uint16_t sOk = sizeof(icon_tick);
-    static const unsigned char* nOk = icon_cross;
+    static const unsigned char *nOk = icon_cross;
     uint16_t snOk = sizeof(icon_cross);
-
 
     pngDraw(icon_wifi, sizeof(icon_wifi), 0, 0);
     pngDraw(wifiStatus ? ok : nOk, wifiStatus ? sOk : snOk, 40, 0);
     pngDraw(icon_cloud_connection, sizeof(icon_cloud_connection), 80, 0);
     pngDraw(iotStatus ? ok : nOk, iotStatus ? sOk : snOk, 120, 0);
-    #ifdef USE_IBBQ
+#ifdef USE_IBBQ
     pngDraw(icon_bluetooth, sizeof(icon_bluetooth), 160, 0);
     pngDraw(bleStatus ? ok : nOk, bleStatus ? sOk : snOk, 200, 0);
-    #endif
+#endif
 
     tft.setTextDatum(TL_DATUM);
-    tft.setCursor(0,32);
+    tft.setCursor(0, 32);
     tft.setTextSize(1);
     tft.print(THINGNAME);
     tft.print(" - ");
     tft.println(ipAddress);
 }
 
+void Display::drawTemperature()
+{
+    uint8_t padding = 50;
+    if (startupMode)
+    {
+        pngDraw(icon_fan_80, sizeof(icon_fan_80), 0, padding);
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextSize(3);
+        uint16_t h = tft.fontHeight();
+        tft.drawString("Startup", 90, padding + 10);
+        tft.drawString("mode", 90, padding + 10 + h);
+    }
+    else
+    {
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextSize(4);
+        tft.drawString("xxx C", TFT_HEIGHT / 2, TFT_WIDTH / 2);
+    }
+}
+
 void Display::showVoltage()
 {
     static uint64_t timeStamp = 0;
-    if (millis() - timeStamp > 1000) {
+    if (millis() - timeStamp > 1000)
+    {
         timeStamp = millis();
         uint16_t v = analogRead(ADC_PIN);
         float battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
@@ -163,7 +191,19 @@ void Display::showVoltage()
         Serial.println(voltage);
         tft.fillScreen(TFT_BLACK);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString(voltage,  tft.width() / 2, tft.height() / 2 );
+        tft.drawString(voltage, tft.width() / 2, tft.height() / 2);
+    }
+}
+
+void Display::drawGrid()
+{
+    for (uint16_t i = 10; i < TFT_HEIGHT; i += 10)
+    {
+        tft.drawLine(i, 0, i, TFT_WIDTH, TFT_LIGHTGREY);
+    }
+    for (uint16_t i = 10; i < TFT_WIDTH; i += 10)
+    {
+        tft.drawLine(0, i, TFT_HEIGHT, i, TFT_LIGHTGREY);
     }
 }
 #endif
