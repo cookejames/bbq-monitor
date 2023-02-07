@@ -6,6 +6,7 @@
 #include <SPIFFS.h>
 #include <Arduino.h>
 #include <PNGdec.h>
+#include <DigitalGuage.h>
 
 class Display
 {
@@ -30,12 +31,19 @@ private:
   static bool bleStatus;
   static bool iotStatus;
   static bool startupMode;
+  static bool lidOpenMode;
   static char ipAddress[];
+  static int16_t setpoint;
+  static int16_t currentTemperature;
   static void showVoltage();
   static void drawStatus();
   static void drawTemperature();
+  static void clearTemperature();
   static void drawGrid();
   static PNG png;
+  static DigitalGuage setpointGuage;
+  static DigitalGuage temperatureGuage;
+  static TFT_eSPI tft;
   static void pngDrawCb(PNGDRAW *);
   static void pngDraw(const unsigned char *, int16_t, int16_t, int16_t);
 };

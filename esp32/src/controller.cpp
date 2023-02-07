@@ -86,7 +86,7 @@ void Controller::run()
     return;
   }
   #else
-  // TODO implement other temperature logic here
+  // TODO implement other temperature sensor logic here
   return;
   #endif
 

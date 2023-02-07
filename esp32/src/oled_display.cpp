@@ -11,33 +11,33 @@
 #include <PNGdec.h>
 #include <images.h>
 
-TFT_eSPI tft = TFT_eSPI(TFT_WIDTH, TFT_HEIGHT);
 bool Display::wifiStatus = false;
 bool Display::bleStatus = false;
 bool Display::iotStatus = false;
 bool Display::hasUpdates = false;
 bool Display::startupMode = false;
+bool Display::lidOpenMode = false;
 char Display::ipAddress[] = "000.000.000.000";
+int16_t Display::setpoint = 0;
+int16_t Display::currentTemperature = 0;
 int16_t Display::imageXpos = 0;
 int16_t Display::imageYpos = 0;
 PNG Display::png;
-
-int vref = 1100;
-#define ADC_PIN 34
+TFT_eSPI Display::tft = TFT_eSPI();
+DigitalGuage Display::setpointGuage = DigitalGuage(&tft, 0, 400);
+DigitalGuage Display::temperatureGuage = DigitalGuage(&tft, 0, 400);
 
 void Display::init()
 {
     tft.init();
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_WHITE);
-    tft.setTextSize(2);
-    tft.setCursor(0, 0);
-    tft.setTextDatum(MC_DATUM);
-    tft.drawString("BBQ Monitor", TFT_HEIGHT / 2, TFT_WIDTH / 2);
-    int16_t h = tft.fontHeight();
-    tft.setTextSize(1);
-    tft.drawString("Loading...", TFT_HEIGHT / 2, TFT_WIDTH / 2 + h);
+    hasUpdates = true;
+    temperatureGuage.init(40, 65, 50);
+    temperatureGuage.setDisplayValue(true, "C");
+    setpointGuage.init(140, 65, 50);
+    setpointGuage.setDisplayValue(true, "C");
+    check();
 }
 
 void Display::check()
@@ -48,7 +48,6 @@ void Display::check()
 
     Log.trace("Updating display");
     tft.setCursor(0, 0);
-    tft.fillScreen(TFT_BLACK);
 
     Display::drawStatus();
     Display::drawTemperature();
@@ -76,6 +75,11 @@ void Display::setIpAddress(const char *_ipAddress)
 
 void Display::setTemperature(uint16_t temperature)
 {
+    hasUpdates = true;
+    startupMode = false;
+    lidOpenMode = false;
+    currentTemperature = temperature;
+    Display::check();
 }
 
 void Display::setSetpoint(int16_t temperature, bool partialUpdate)
@@ -85,20 +89,39 @@ void Display::setSetpoint(int16_t temperature, bool partialUpdate)
 
 void Display::setSetpoint(int16_t temperature)
 {
+    if (startupMode || lidOpenMode)
+    {
+        clearTemperature();
+        temperatureGuage.init();
+        setpointGuage.init();
+    }
     hasUpdates = true;
     startupMode = false;
+    lidOpenMode = false;
+    setpoint = temperature;
     Display::check();
 }
 
 void Display::setStartupMode()
 {
+    if (startupMode)
+        return;
     hasUpdates = true;
     startupMode = true;
+    lidOpenMode = false;
+    clearTemperature();
     Display::check();
 }
 
 void Display::setLidOpenMode()
 {
+    if (lidOpenMode)
+        return;
+    hasUpdates = true;
+    lidOpenMode = true;
+    startupMode = false;
+    clearTemperature();
+    Display::check();
 }
 
 void Display::setTunings(double Kp, double Ki, double Kd)
@@ -137,6 +160,14 @@ void Display::pngDraw(const unsigned char *image, int16_t size, int16_t x, int16
 
 void Display::drawStatus()
 {
+    tft.setTextDatum(TC_DATUM);
+    tft.setCursor(0, 32);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE);
+    uint8_t h = tft.fontHeight();
+    // Clear the status bar
+    tft.fillRect(0, 0, TFT_HEIGHT, 40, TFT_BLACK);
+
     static const unsigned char *ok = icon_tick;
     uint16_t sOk = sizeof(icon_tick);
     static const unsigned char *nOk = icon_cross;
@@ -151,47 +182,47 @@ void Display::drawStatus()
     pngDraw(bleStatus ? ok : nOk, bleStatus ? sOk : snOk, 200, 0);
 #endif
 
-    tft.setTextDatum(TL_DATUM);
-    tft.setCursor(0, 32);
-    tft.setTextSize(1);
+    tft.setTextWrap(false, false);
     tft.print(THINGNAME);
     tft.print(" - ");
     tft.println(ipAddress);
 }
 
+void Display::clearTemperature()
+{
+    tft.fillRect(0, 40, TFT_HEIGHT, TFT_WIDTH - 40, TFT_BLACK);
+}
+
 void Display::drawTemperature()
 {
     uint8_t padding = 50;
+    tft.setTextColor(TFT_WHITE);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(3);
     if (startupMode)
     {
+        //
         pngDraw(icon_fan_80, sizeof(icon_fan_80), 0, padding);
-        tft.setTextDatum(TL_DATUM);
-        tft.setTextSize(3);
         uint16_t h = tft.fontHeight();
         tft.drawString("Startup", 90, padding + 10);
         tft.drawString("mode", 90, padding + 10 + h);
     }
+    else if (lidOpenMode)
+    {
+        pngDraw(icon_grill_80, sizeof(icon_grill_80), 0, padding);
+        uint16_t h = tft.fontHeight();
+        tft.drawString("Lid", 90, padding + 10);
+        tft.drawString("open", 90, padding + 10 + h);
+    }
     else
     {
-        tft.setTextDatum(MC_DATUM);
-        tft.setTextSize(4);
-        tft.drawString("xxx C", TFT_HEIGHT / 2, TFT_WIDTH / 2);
-    }
-}
-
-void Display::showVoltage()
-{
-    static uint64_t timeStamp = 0;
-    if (millis() - timeStamp > 1000)
-    {
-        timeStamp = millis();
-        uint16_t v = analogRead(ADC_PIN);
-        float battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
-        String voltage = "Voltage :" + String(battery_voltage) + "V";
-        Serial.println(voltage);
-        tft.fillScreen(TFT_BLACK);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString(voltage, tft.width() / 2, tft.height() / 2);
+        tft.setTextColor(TFT_YELLOW);
+        tft.setTextDatum(TC_DATUM);
+        tft.setTextSize(1);
+        tft.drawString("Temperature", 65, 50);
+        tft.drawString("Setpoint", 165, 50);
+        temperatureGuage.setVal(currentTemperature);
+        setpointGuage.setVal(setpoint);
     }
 }
 
