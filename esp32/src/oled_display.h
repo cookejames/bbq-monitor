@@ -5,6 +5,7 @@
   #include <FS.h>
   #include <SPIFFS.h>
   #include <Arduino.h>
+  #include <PNGdec.h>
 
   class Display
   {
@@ -21,11 +22,18 @@
     static void setLidOpenMode();
     static void check();
   private:
+    static int16_t imageXpos;
+    static int16_t imageYpos;
     static bool hasUpdates;
     static bool wifiStatus;
     static bool bleStatus;
     static bool iotStatus;
+    static char ipAddress[];
     static void showVoltage();
+    static void drawStatus();
+    static PNG png;
+    static void pngDrawCb(PNGDRAW *);
+    static void pngDraw(const unsigned char *, int16_t, int16_t, int16_t);
   };
   #endif
 
