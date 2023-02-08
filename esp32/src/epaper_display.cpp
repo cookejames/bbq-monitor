@@ -1,5 +1,5 @@
 #include <config.h>
-#ifdef BOARD_TTGO_T5
+#ifdef HAS_EPAPER_DISPLAY
 #include <ArduinoLog.h>
 #include <ArduinoJson.h>
 #include <display.h>

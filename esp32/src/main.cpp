@@ -4,13 +4,13 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include "soc/rtc_cntl_reg.h"
+#include <config.h>
 #ifdef USE_IBBQ
 #include <ibbq.h>
 #endif
 #include <wifi.h>
 #include <awsiot.h>
 #include <controller.h>
-#include <config.h>
 #include <damper.h>
 #include <display.h>
 
@@ -27,7 +27,9 @@ long lastOkTime = 0;
 
 void status(bool ok)
 {
+  #ifdef STATUS_PIN
   digitalWrite(STATUS_PIN, ok ? HIGH : LOW);
+  #endif
 }
 
 void temperatureReceivedCallback(uint16_t temperatures[], uint8_t numProbes)
@@ -78,7 +80,9 @@ void setup()
   Display::init();
 
   //Setup the status pin
+  #ifdef STATUS_PIN
   pinMode(STATUS_PIN, OUTPUT);
+  #endif
   status(STATUS_BAD);
 
   controller.setup();

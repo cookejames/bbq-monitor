@@ -1,5 +1,6 @@
 #include <ArduinoLog.h>
 #include <controller.h>
+#include <config.h>
 #ifdef USE_IBBQ
 #include <ibbq.h>
 #endif

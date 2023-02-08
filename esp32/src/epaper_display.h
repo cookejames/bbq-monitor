@@ -1,7 +1,7 @@
 #ifndef epaper_display_h
 #define epaper_display_h
 #include <config.h>
-  #ifdef BOARD_TTGO_T5
+  #ifdef HAS_EPAPER_DISPLAY
   #include <Arduino.h>
   #include <GxEPD.h>
   #include <GxDEPG0213BN/GxDEPG0213BN.h>

@@ -2,7 +2,7 @@
 // Converted with https://notisrac.github.io/FileToCArray/
 
 #include <config.h>
-#ifdef BOARD_TTGO_DISPLAY
+#ifdef HAS_LCD_DISPLAY
 // array size is 1150
 static const unsigned char icon_bluetooth[] PROGMEM = {
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,

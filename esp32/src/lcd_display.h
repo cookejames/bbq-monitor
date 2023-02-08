@@ -1,7 +1,7 @@
-#ifndef oled_display_h
-#define oled_display_h
+#ifndef lcd_display_h
+#define lcd_display_h
 #include <config.h>
-#ifdef BOARD_TTGO_DISPLAY
+#ifdef HAS_LCD_DISPLAY
 #include <FS.h>
 #include <SPIFFS.h>
 #include <Arduino.h>

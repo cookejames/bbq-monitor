@@ -1,9 +1,9 @@
 #include <config.h>
 
-#ifdef BOARD_TTGO_T5
+#ifdef HAS_EPAPER_DISPLAY
 #include <epaper_display.h>
 #endif
 
-#ifdef BOARD_TTGO_DISPLAY
-#include <oled_display.h>
+#ifdef HAS_LCD_DISPLAY
+#include <lcd_display.h>
 #endif

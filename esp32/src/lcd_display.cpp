@@ -1,8 +1,8 @@
 #include <config.h>
-#ifdef BOARD_TTGO_DISPLAY
+#ifdef HAS_LCD_DISPLAY
 #include <ArduinoLog.h>
 #include <ArduinoJson.h>
-#include <oled_display.h>
+#include <lcd_display.h>
 #include <secrets.h>
 #include <awsiot.h>
 #include <controller.h>
