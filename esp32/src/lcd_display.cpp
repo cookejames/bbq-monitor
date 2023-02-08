@@ -8,8 +8,10 @@
 #include <controller.h>
 #include <TFT_eSPI.h>
 #include <SPI.h>
+#ifdef USE_HQ_IMAGES
 #include <PNGdec.h>
 #include <images.h>
+#endif
 
 bool Display::wifiStatus = false;
 bool Display::bleStatus = false;
@@ -22,7 +24,9 @@ int16_t Display::setpoint = 0;
 int16_t Display::currentTemperature = 0;
 int16_t Display::imageXpos = 0;
 int16_t Display::imageYpos = 0;
+#ifdef USE_HQ_IMAGES
 PNG Display::png;
+#endif
 TFT_eSPI Display::tft = TFT_eSPI();
 DigitalGuage Display::setpointGuage = DigitalGuage(&tft, 0, 400);
 DigitalGuage Display::temperatureGuage = DigitalGuage(&tft, 0, 400);
@@ -75,6 +79,7 @@ void Display::setIpAddress(const char *_ipAddress)
 
 void Display::setTemperature(uint16_t temperature)
 {
+    Log.trace("DISPLAY TEMPERATURE WAS SET");
     hasUpdates = true;
     startupMode = false;
     lidOpenMode = false;
@@ -133,6 +138,7 @@ void Display::setPidOutput(uint8_t output)
 }
 
 /*****   PRIVATE    *****/
+#ifdef USE_HQ_IMAGES
 void Display::pngDrawCb(PNGDRAW *pDraw)
 {
     uint16_t lineBuffer[TFT_WIDTH];        // Line buffer for rendering
@@ -157,17 +163,17 @@ void Display::pngDraw(const unsigned char *image, int16_t size, int16_t x, int16
     tft.endWrite();
     tft.endWrite();
 }
+#endif
 
 void Display::drawStatus()
 {
-    tft.setTextDatum(TC_DATUM);
-    tft.setCursor(0, 32);
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE);
     uint8_t h = tft.fontHeight();
     // Clear the status bar
     tft.fillRect(0, 0, TFT_HEIGHT, 40, TFT_BLACK);
 
+#ifdef USE_HQ_IMAGES
     static const unsigned char *ok = icon_tick;
     uint16_t sOk = sizeof(icon_tick);
     static const unsigned char *nOk = icon_cross;
@@ -181,7 +187,14 @@ void Display::drawStatus()
     pngDraw(icon_bluetooth, sizeof(icon_bluetooth), 160, 0);
     pngDraw(bleStatus ? ok : nOk, bleStatus ? sOk : snOk, 200, 0);
 #endif
-
+#else
+    tft.setTextSize(2);
+    tft.setCursor(0, 0);
+    tft.printf("WiFi: %s IoT: %s BT: %s", wifiStatus ? "x" : "-", iotStatus ? "x" : "-", bleStatus ? "x" : "-");
+#endif
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextSize(1);
+    tft.setCursor(0, 32);
     tft.setTextWrap(false, false);
     tft.print(THINGNAME);
     tft.print(" - ");

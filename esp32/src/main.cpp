@@ -27,9 +27,9 @@ long lastOkTime = 0;
 
 void status(bool ok)
 {
-  #ifdef STATUS_PIN
+#ifdef STATUS_PIN
   digitalWrite(STATUS_PIN, ok ? HIGH : LOW);
-  #endif
+#endif
 }
 
 void temperatureReceivedCallback(uint16_t temperatures[], uint8_t numProbes)
@@ -69,20 +69,24 @@ void mqttMessageHandler(String &topic, String &payload)
   }
 }
 
+long lastReport = 0;
+
 void setup()
 {
   // WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Prevent brownouts by silencing them. You probably want to keep this.
 
   Serial.begin(115200);
   Log.begin(LOG_LEVEL, &Serial, true);
-  Log.setPrefix([](Print *_logOutput, int level) {   char c[12];sprintf(c, "%s - ", timeClient.getFormattedTime().c_str());_logOutput->print(c); });
-  Log.setSuffix([](Print *_logOutput, int level) { _logOutput->print('\n'); });
+  Log.setPrefix([](Print *_logOutput, int level)
+                {   char c[12];sprintf(c, "%s - ", timeClient.getFormattedTime().c_str());_logOutput->print(c); });
+  Log.setSuffix([](Print *_logOutput, int level)
+                { _logOutput->print('\n'); });
   Display::init();
 
-  //Setup the status pin
-  #ifdef STATUS_PIN
+// Setup the status pin
+#ifdef STATUS_PIN
   pinMode(STATUS_PIN, OUTPUT);
-  #endif
+#endif
   status(STATUS_BAD);
 
   controller.setup();
@@ -94,10 +98,10 @@ void setup()
   timeClient.begin();
   timeClient.update();
 
-  #ifdef USE_IBBQ
+#ifdef USE_IBBQ
   // Connect thermometer
   iBBQ::connect(temperatureReceivedCallback);
-  #endif
+#endif
 
   // Connect to MQTT
   AwsIot::setMessageHander(mqttMessageHandler);
@@ -112,56 +116,58 @@ void setup()
   {
     Log.warning("WiFi disconnected, skipping IoT start");
   }
-}
 
-long lastReport = 0;
-void loop()
-{
-  // Set the status LED
-  bool tempConnected;
-  #ifdef USE_IBBQ
-  tempConnected = iBBQ::isConnected();
-  #else
-  tempConnected = true;
-  #endif
-  Display::setStatus(wifi.isConnected(), AwsIot::isConnected(), tempConnected);
+  // Do not use the loop function
+  while (true)
+  {
+    // Set the status LED
+    bool tempConnected;
+#ifdef USE_IBBQ
+    tempConnected = iBBQ::isConnected();
+#else
+    tempConnected = true;
+#endif
+    Display::setStatus(wifi.isConnected(), AwsIot::isConnected(), tempConnected);
 
-  if (wifi.isConnected() && tempConnected && AwsIot::isConnected())
-  {
-    status(STATUS_OK);
-    lastOkTime = millis();
-  }
-  else
-  {
-    status(STATUS_BAD);
-    if (millis() > lastOkTime + STATUS_PERIOD)
+    if (wifi.isConnected() && tempConnected && AwsIot::isConnected())
     {
-      Log.fatal("Unable to connect for > %dms. Restarting.", STATUS_PERIOD);
-      ESP.restart();
+      status(STATUS_OK);
+      lastOkTime = millis();
     }
+    else
+    {
+      status(STATUS_BAD);
+      if (millis() > lastOkTime + STATUS_PERIOD)
+      {
+        Log.fatal("Unable to connect for > %dms. Restarting.", STATUS_PERIOD);
+        ESP.restart();
+      }
+    }
+
+    timeClient.update();
+
+    if (millis() > lastReport + 30000)
+    {
+      Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d",
+                ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+      Log.trace("Monitored temperature is %dC, rolling average is %dC, fan speed is %drpm, duty %dpc and servo opening is %dpc",
+                controller.getMonitoredTemperature(), controller.getMonitoredTemperatureAverage(), damper::getRPM(), controller.getFanDuty(), controller.getServoOpening());
+      lastReport = millis();
+    }
+
+#ifdef USE_IBBQ
+    iBBQ::check();
+#endif
+    wifi.check();
+    if (wifi.isConnected())
+    {
+      AwsIot::check();
+    }
+    controller.run();
+
+    Display::check();
+    delay(10);
   }
-
-  timeClient.update();
-
-  if (millis() > lastReport + 30000)
-  {
-    Log.trace("ESP free heap %d/%d, minimum free heap %d, max alloc heap %d",
-              ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
-    Log.trace("Monitored temperature is %dC, rolling average is %dC, fan speed is %drpm, duty %dpc and servo opening is %dpc",
-              controller.getMonitoredTemperature(), controller.getMonitoredTemperatureAverage(), damper::getRPM(), controller.getFanDuty(), controller.getServoOpening());
-    lastReport = millis();
-  }
-
-  #ifdef USE_IBBQ
-  iBBQ::check();
-  #endif
-  wifi.check();
-  if (wifi.isConnected())
-  {
-    AwsIot::check();
-  }
-  controller.run();
-
-  Display::check();
-  delay(10);
 }
+
+void loop() {}

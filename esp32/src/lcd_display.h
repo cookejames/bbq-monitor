@@ -5,7 +5,9 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <Arduino.h>
+#ifdef USE_HQ_IMAGES
 #include <PNGdec.h>
+#endif
 #include <DigitalGuage.h>
 
 class Display
@@ -40,12 +42,14 @@ private:
   static void drawTemperature();
   static void clearTemperature();
   static void drawGrid();
-  static PNG png;
   static DigitalGuage setpointGuage;
   static DigitalGuage temperatureGuage;
   static TFT_eSPI tft;
+  #ifdef USE_HQ_IMAGES
+  static PNG png;
   static void pngDrawCb(PNGDRAW *);
   static void pngDraw(const unsigned char *, int16_t, int16_t, int16_t);
+  #endif
 };
 #endif
 

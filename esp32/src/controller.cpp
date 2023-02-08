@@ -80,16 +80,16 @@ void Controller::run()
     return;
   }
 
-  // Automatic mode cannot proceed without a temperature connection
-  #ifdef USE_IBBQ
+// Automatic mode cannot proceed without a temperature connection
+#ifdef USE_IBBQ
   if (!iBBQ::isConnected())
   {
     return;
   }
-  #else
+#else
   // TODO implement other temperature sensor logic here
   return;
-  #endif
+#endif
 
   // Check if we need to make any changes to lid open mode
   bool shouldLidOpen = shouldLidOpenMode();
