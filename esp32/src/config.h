@@ -10,6 +10,8 @@
 // Use iBBQ bluetooth temperature probe
 #define USE_IBBQ
 
+// #define USE_HQ_IMAGES
+
 #define LOG_LEVEL LOG_LEVEL_TRACE
 
 #ifdef BOARD_DEVKIT

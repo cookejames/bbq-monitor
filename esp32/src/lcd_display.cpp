@@ -201,15 +201,18 @@ void Display::drawTemperature()
     tft.setTextSize(3);
     if (startupMode)
     {
-        //
+#ifdef USE_HQ_IMAGES
         pngDraw(icon_fan_80, sizeof(icon_fan_80), 0, padding);
+#endif
         uint16_t h = tft.fontHeight();
         tft.drawString("Startup", 90, padding + 10);
         tft.drawString("mode", 90, padding + 10 + h);
     }
     else if (lidOpenMode)
     {
+#ifdef USE_HQ_IMAGES
         pngDraw(icon_grill_80, sizeof(icon_grill_80), 0, padding);
+#endif
         uint16_t h = tft.fontHeight();
         tft.drawString("Lid", 90, padding + 10);
         tft.drawString("open", 90, padding + 10 + h);
