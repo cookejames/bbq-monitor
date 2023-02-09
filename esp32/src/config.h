@@ -8,9 +8,9 @@
 #define BOARD_TTGO_DISPLAY
 
 // Use iBBQ bluetooth temperature probe
-#define USE_IBBQ
+// #define USE_IBBQ
 
-#undef USE_HQ_IMAGES
+#define USE_HQ_IMAGES
 
 #define LOG_LEVEL LOG_LEVEL_TRACE
 

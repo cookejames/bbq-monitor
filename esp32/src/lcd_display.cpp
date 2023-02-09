@@ -31,15 +31,19 @@ TFT_eSPI Display::tft = TFT_eSPI();
 DigitalGuage Display::setpointGuage = DigitalGuage(&tft, 0, 400);
 DigitalGuage Display::temperatureGuage = DigitalGuage(&tft, 0, 400);
 
+// Screen is rotated
+#define DISPLAY_WIDTH TFT_HEIGHT
+#define DISPLAY_HEIGHT TFT_WIDTH
+
 void Display::init()
 {
     tft.init();
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
     hasUpdates = true;
-    temperatureGuage.init(40, 65, 50);
+    temperatureGuage.init(40, headerSize + 20, 50);
     temperatureGuage.setDisplayValue(true, "C");
-    setpointGuage.init(140, 65, 50);
+    setpointGuage.init(140, headerSize + 20, 50);
     setpointGuage.setDisplayValue(true, "C");
     check();
 }
@@ -53,7 +57,7 @@ void Display::check()
     Log.trace("Updating display");
     tft.setCursor(0, 0);
 
-    Display::drawStatus();
+    Display::drawHeaderAndFooter();
     Display::drawTemperature();
     // Display::drawGrid();
 }
@@ -141,8 +145,8 @@ void Display::setPidOutput(uint8_t output)
 #ifdef USE_HQ_IMAGES
 void Display::pngDrawCb(PNGDRAW *pDraw)
 {
-    uint16_t lineBuffer[TFT_WIDTH];        // Line buffer for rendering
-    uint8_t maskBuffer[1 + TFT_WIDTH / 8]; // Mask buffer
+    uint16_t lineBuffer[DISPLAY_HEIGHT];        // Line buffer for rendering
+    uint8_t maskBuffer[1 + DISPLAY_HEIGHT / 8]; // Mask buffer
 
     png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
 
@@ -165,14 +169,17 @@ void Display::pngDraw(const unsigned char *image, int16_t size, int16_t x, int16
 }
 #endif
 
-void Display::drawStatus()
+void Display::drawHeaderAndFooter()
 {
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE);
     uint8_t h = tft.fontHeight();
-    // Clear the status bar
-    tft.fillRect(0, 0, TFT_HEIGHT, 40, TFT_BLACK);
 
+    // Clear the header and footer
+    tft.fillRect(0, 0, DISPLAY_WIDTH, headerSize, TFT_BLACK);
+    tft.fillRect(0, DISPLAY_HEIGHT - footerSize, DISPLAY_WIDTH, footerSize, TFT_BLACK);
+
+    // Draw the header
 #ifdef USE_HQ_IMAGES
     static const unsigned char *ok = icon_tick;
     uint16_t sOk = sizeof(icon_tick);
@@ -192,9 +199,11 @@ void Display::drawStatus()
     tft.setCursor(0, 0);
     tft.printf("WiFi: %s IoT: %s BT: %s", wifiStatus ? "x" : "-", iotStatus ? "x" : "-", bleStatus ? "x" : "-");
 #endif
+
+    // Draw the footer
     tft.setTextDatum(TC_DATUM);
     tft.setTextSize(1);
-    tft.setCursor(0, 32);
+    tft.setCursor(0, DISPLAY_HEIGHT - footerSize);
     tft.setTextWrap(false, false);
     tft.print(THINGNAME);
     tft.print(" - ");
@@ -203,40 +212,40 @@ void Display::drawStatus()
 
 void Display::clearTemperature()
 {
-    tft.fillRect(0, 40, TFT_HEIGHT, TFT_WIDTH - 40, TFT_BLACK);
+    tft.fillRect(0, 40, DISPLAY_WIDTH, DISPLAY_HEIGHT - 40, TFT_BLACK);
 }
 
 void Display::drawTemperature()
 {
-    uint8_t padding = 50;
+    uint8_t top = headerSize + 5;
     tft.setTextColor(TFT_WHITE);
     tft.setTextDatum(TL_DATUM);
     tft.setTextSize(3);
     if (startupMode)
     {
 #ifdef USE_HQ_IMAGES
-        pngDraw(icon_fan_80, sizeof(icon_fan_80), 0, padding);
+        pngDraw(icon_fan_80, sizeof(icon_fan_80), 0, top);
 #endif
         uint16_t h = tft.fontHeight();
-        tft.drawString("Startup", 90, padding + 10);
-        tft.drawString("mode", 90, padding + 10 + h);
+        tft.drawString("Startup", 90, top + 10);
+        tft.drawString("mode", 90, top + 10 + h);
     }
     else if (lidOpenMode)
     {
 #ifdef USE_HQ_IMAGES
-        pngDraw(icon_grill_80, sizeof(icon_grill_80), 0, padding);
+        pngDraw(icon_grill_80, sizeof(icon_grill_80), 0, top);
 #endif
         uint16_t h = tft.fontHeight();
-        tft.drawString("Lid", 90, padding + 10);
-        tft.drawString("open", 90, padding + 10 + h);
+        tft.drawString("Lid", 90, top + 10);
+        tft.drawString("open", 90, top + 10 + h);
     }
     else
     {
         tft.setTextColor(TFT_YELLOW);
         tft.setTextDatum(TC_DATUM);
         tft.setTextSize(1);
-        tft.drawString("Temperature", 65, 50);
-        tft.drawString("Setpoint", 165, 50);
+        tft.drawString("Temperature", 65, top);
+        tft.drawString("Setpoint", 165, top);
         temperatureGuage.setVal(currentTemperature);
         setpointGuage.setVal(setpoint);
     }
@@ -244,13 +253,13 @@ void Display::drawTemperature()
 
 void Display::drawGrid()
 {
-    for (uint16_t i = 10; i < TFT_HEIGHT; i += 10)
+    for (uint16_t i = 10; i < DISPLAY_WIDTH; i += 10)
     {
-        tft.drawLine(i, 0, i, TFT_WIDTH, TFT_LIGHTGREY);
+        tft.drawLine(i, 0, i, DISPLAY_HEIGHT, TFT_LIGHTGREY);
     }
-    for (uint16_t i = 10; i < TFT_WIDTH; i += 10)
+    for (uint16_t i = 10; i < DISPLAY_HEIGHT; i += 10)
     {
-        tft.drawLine(0, i, TFT_HEIGHT, i, TFT_LIGHTGREY);
+        tft.drawLine(0, i, DISPLAY_WIDTH, i, TFT_LIGHTGREY);
     }
 }
 #endif
