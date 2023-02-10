@@ -42,6 +42,9 @@ public:
   void disableLidOpenMode();
 
 private:
+#ifdef USE_MAX6675
+  uint32_t lastMax6675ReadingTime = 0;
+#endif
   PID pid;
   movingAvg temperatureAverage;
   uint8_t probe = 0;

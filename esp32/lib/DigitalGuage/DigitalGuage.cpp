@@ -83,7 +83,9 @@ void DigitalGuage::setVal(uint16_t val)
         init();
 
     // Map the value to an angle
-    int valAngle = mapAngle(val);
+    uint16_t _val = val > maxVal ? maxVal : val;
+    _val = val < minVal ? minVal : val;
+    int valAngle = mapAngle(_val);
 
     if (lastAngle == valAngle)
         return;

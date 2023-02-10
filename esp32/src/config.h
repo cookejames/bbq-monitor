@@ -10,6 +10,8 @@
 // Use iBBQ bluetooth temperature probe
 // #define USE_IBBQ
 
+#define USE_MAX6675
+
 #define USE_HQ_IMAGES
 
 #define LOG_LEVEL LOG_LEVEL_TRACE
@@ -39,10 +41,13 @@
 #define HAS_LCD_DISPLAY
 // Servo availible on: 2,4,5,12-19,21-23,25-27,32-33
 #define SERVO_PIN 12
-#define FAN_PWM_PIN 27
+#define FAN_PWM_PIN 32
 // #define FAN_RPM_PIN 2
 #define BUTTON_UP_PIN 35
 #define BUTTON_DOWN_PIN 0
+#define THERMO_MISO 27
+#define THERMO_SCK 25
+#define THERMO_CS 33
 #endif
 
 #define FAN_MIN_PWM 15

@@ -4,6 +4,9 @@
 #ifdef USE_IBBQ
 #include <ibbq.h>
 #endif
+#ifdef USE_MAX6675
+#include <max6675.h>
+#endif
 #include <awsiot.h>
 #include <damper.h>
 #include <display.h>
@@ -11,6 +14,9 @@
 
 #define TIME_BETWEEN_AVERAGE_READINGS 10000
 #define TIME_BETWEEN_CONTROLSTATE_PUBLISH 5 * 60 * 1000
+#ifdef USE_MAX6675
+MAX6675 thermocouple(THERMO_SCK, THERMO_CS, THERMO_MISO);
+#endif
 
 Controller::Controller() : pid(&pidInput, &pidOutput, &pidSetpoint, Kp = 15, Ki = 0.15, Kd = 15, P_ON_M, PID_MODE),
                            temperatureAverage(30)
@@ -86,9 +92,16 @@ void Controller::run()
   {
     return;
   }
-#else
-  // TODO implement other temperature sensor logic here
-  return;
+#endif
+
+#ifdef USE_MAX6675
+  // if we are using a MAX6675 thermocouple read the value and process the result
+  if (millis() > lastMax6675ReadingTime + 1000)
+  {
+    lastMax6675ReadingTime = millis();
+    uint16_t readings[1] = {(uint16_t)thermocouple.readCelsius()};
+    processTemperatureResult(readings, 1);
+  }
 #endif
 
   // Check if we need to make any changes to lid open mode

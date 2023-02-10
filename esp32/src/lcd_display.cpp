@@ -54,7 +54,7 @@ void Display::check()
         return;
     hasUpdates = false;
 
-    Log.trace("Updating display");
+    Log.verbose("Display has updates - redrawing");
     tft.setCursor(0, 0);
 
     Display::drawHeaderAndFooter();
@@ -83,7 +83,8 @@ void Display::setIpAddress(const char *_ipAddress)
 
 void Display::setTemperature(uint16_t temperature)
 {
-    Log.trace("DISPLAY TEMPERATURE WAS SET");
+    if (temperature == currentTemperature)
+        return;
     hasUpdates = true;
     startupMode = false;
     lidOpenMode = false;
