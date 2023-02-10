@@ -125,6 +125,7 @@ namespace buttons
   void downLongPressed()
   {
     Log.trace("Down button long pressed");
+    controller->toggleStartupMode();
   }
 
   void setup(Controller *_controller)

@@ -34,6 +34,7 @@ DigitalGuage Display::temperatureGuage = DigitalGuage(&tft, 0, 400);
 // Screen is rotated
 #define DISPLAY_WIDTH TFT_HEIGHT
 #define DISPLAY_HEIGHT TFT_WIDTH
+#define GUAGE_DIAMETER 90
 
 void Display::init()
 {
@@ -41,9 +42,9 @@ void Display::init()
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
     hasUpdates = true;
-    temperatureGuage.init(40, headerSize + 20, 50);
+    temperatureGuage.init(40, 20, GUAGE_DIAMETER);
     temperatureGuage.setDisplayValue(true, "C");
-    setpointGuage.init(140, headerSize + 20, 50);
+    setpointGuage.init(140, 20, GUAGE_DIAMETER);
     setpointGuage.setDisplayValue(true, "C");
     check();
 }
@@ -57,7 +58,7 @@ void Display::check()
     Log.verbose("Display has updates - redrawing");
     tft.setCursor(0, 0);
 
-    Display::drawHeaderAndFooter();
+    Display::drawStatusAndFooter();
     Display::drawTemperature();
     // Display::drawGrid();
 }
@@ -114,6 +115,7 @@ void Display::setSetpoint(int16_t temperature)
 
 void Display::setStartupMode()
 {
+    Log.trace("Display set startup mode");
     if (startupMode)
         return;
     hasUpdates = true;
@@ -170,14 +172,14 @@ void Display::pngDraw(const unsigned char *image, int16_t size, int16_t x, int16
 }
 #endif
 
-void Display::drawHeaderAndFooter()
+void Display::drawStatusAndFooter()
 {
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE);
     uint8_t h = tft.fontHeight();
 
     // Clear the header and footer
-    tft.fillRect(0, 0, DISPLAY_WIDTH, headerSize, TFT_BLACK);
+    tft.fillRect(0, 0, statusSize, DISPLAY_HEIGHT - footerSize, TFT_BLACK);
     tft.fillRect(0, DISPLAY_HEIGHT - footerSize, DISPLAY_WIDTH, footerSize, TFT_BLACK);
 
     // Draw the header
@@ -188,14 +190,24 @@ void Display::drawHeaderAndFooter()
     uint16_t snOk = sizeof(icon_cross);
 
     pngDraw(icon_wifi, sizeof(icon_wifi), 0, 0);
-    pngDraw(wifiStatus ? ok : nOk, wifiStatus ? sOk : snOk, 40, 0);
-    pngDraw(icon_cloud_connection, sizeof(icon_cloud_connection), 80, 0);
-    pngDraw(iotStatus ? ok : nOk, iotStatus ? sOk : snOk, 120, 0);
-#ifdef USE_IBBQ
-    pngDraw(icon_bluetooth, sizeof(icon_bluetooth), 160, 0);
-    pngDraw(bleStatus ? ok : nOk, bleStatus ? sOk : snOk, 200, 0);
+    if (!wifiStatus)
+    {
+        pngDraw(nOk, snOk, 0, 0);
+    }
+    pngDraw(icon_cloud_connection, sizeof(icon_cloud_connection), 0, 40);
+    if (!iotStatus)
+    {
+        pngDraw(nOk, snOk, 0, 40);
+    }
+    #ifdef USE_IBBQ
+    pngDraw(icon_bluetooth, sizeof(icon_bluetooth), 0, 80);
+    if (!bleStatus)
+    {
+        pngDraw(nOk, snOk, 0, 80);
+    }
 #endif
 #else
+    // TODO draw vertically
     tft.setTextSize(2);
     tft.setCursor(0, 0);
     tft.printf("WiFi: %s IoT: %s BT: %s", wifiStatus ? "x" : "-", iotStatus ? "x" : "-", bleStatus ? "x" : "-");
@@ -213,40 +225,40 @@ void Display::drawHeaderAndFooter()
 
 void Display::clearTemperature()
 {
-    tft.fillRect(0, 40, DISPLAY_WIDTH, DISPLAY_HEIGHT - 40, TFT_BLACK);
+    tft.fillRect(statusSize, 0, DISPLAY_WIDTH - statusSize, DISPLAY_HEIGHT - footerSize, TFT_BLACK);
 }
 
 void Display::drawTemperature()
 {
-    uint8_t top = headerSize + 5;
+    uint8_t top = 30;
     tft.setTextColor(TFT_WHITE);
     tft.setTextDatum(TL_DATUM);
     tft.setTextSize(3);
     if (startupMode)
     {
 #ifdef USE_HQ_IMAGES
-        pngDraw(icon_fan_80, sizeof(icon_fan_80), 0, top);
+        pngDraw(icon_fan_80, sizeof(icon_fan_80), statusSize, top);
 #endif
         uint16_t h = tft.fontHeight();
-        tft.drawString("Startup", 90, top + 10);
-        tft.drawString("mode", 90, top + 10 + h);
+        tft.drawString("Startup", statusSize + 80, top + 10);
+        tft.drawString("mode", statusSize + 80, top + 10 + h);
     }
     else if (lidOpenMode)
     {
 #ifdef USE_HQ_IMAGES
-        pngDraw(icon_grill_80, sizeof(icon_grill_80), 0, top);
+        pngDraw(icon_grill_80, sizeof(icon_grill_80), statusSize, 0);
 #endif
         uint16_t h = tft.fontHeight();
-        tft.drawString("Lid", 90, top + 10);
-        tft.drawString("open", 90, top + 10 + h);
+        tft.drawString("Lid", statusSize + 80, top + 10);
+        tft.drawString("open", statusSize + 80, top + 10 + h);
     }
     else
     {
         tft.setTextColor(TFT_YELLOW);
         tft.setTextDatum(TC_DATUM);
-        tft.setTextSize(1);
-        tft.drawString("Temperature", 65, top);
-        tft.drawString("Setpoint", 165, top);
+        tft.setTextSize(2);
+        tft.drawString("Temp", 85, 0);
+        tft.drawString("Setpoint", 185, 0);
         temperatureGuage.setVal(currentTemperature);
         setpointGuage.setVal(setpoint);
     }

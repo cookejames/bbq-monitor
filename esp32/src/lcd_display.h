@@ -37,10 +37,10 @@ private:
   static char ipAddress[];
   static int16_t setpoint;
   static int16_t currentTemperature;
-  const static uint8_t headerSize = 32;
+  const static uint8_t statusSize = 32;
   const static uint8_t footerSize = 8;
   static void showVoltage();
-  static void drawHeaderAndFooter();
+  static void drawStatusAndFooter();
   static void drawTemperature();
   static void clearTemperature();
   static void drawGrid();
